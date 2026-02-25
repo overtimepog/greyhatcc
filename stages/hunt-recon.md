@@ -34,7 +34,7 @@ Discover attack surface. Do NOT test for vulnerabilities — map the terrain.
 
 ## Parallelism
 
-Optional: up to 3 independent recon items may run in parallel when they target different hosts/subtypes. This is a dispatcher choice — sequential execution is the default. Use parallel dispatch only when items are clearly independent and you want to speed up initial surface discovery.
+Up to 3 independent recon items may run in parallel (they target different hosts/subtypes).
 
 ## Exit Criteria
 
