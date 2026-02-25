@@ -1,0 +1,21 @@
+{
+  "name": "greyhatcc",
+  "version": "1.0.0",
+  "description": "Grey hat penetration testing plugin for Claude Code",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "build:shodan": "node esbuild.config.mjs shodan",
+    "build:sectools": "node esbuild.config.mjs security-tools",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
+  }
+}

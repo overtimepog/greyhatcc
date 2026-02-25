@@ -1,0 +1,29 @@
+{
+  "shodan": {
+    "apiKey": "YOUR_SHODAN_API_KEY_HERE"
+  },
+  "nvd": {
+    "apiKey": "YOUR_NVD_API_KEY_HERE"
+  },
+  "defaults": {
+    "reportFormat": "ptes",
+    "severityThreshold": "LOW",
+    "rateLimit": {
+      "requestsPerSecond": 10,
+      "burstSize": 20
+    }
+  },
+  "directories": {
+    "recon": "recon",
+    "findings": "findings",
+    "reports": "reports",
+    "evidence": "evidence",
+    "exploits": "exploits",
+    "scripts": "scripts",
+    "notes": "notes"
+  },
+  "hackerone": {
+    "username": "",
+    "apiToken": ""
+  }
+}
