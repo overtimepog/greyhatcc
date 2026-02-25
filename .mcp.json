@@ -2,14 +2,14 @@
   "mcpServers": {
     "shodan": {
       "command": "node",
-      "args": ["./bridge/shodan-server.cjs"],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/shodan-server.cjs"],
       "env": {
         "SHODAN_API_KEY": "${SHODAN_API_KEY}"
       }
     },
     "sec": {
       "command": "node",
-      "args": ["./bridge/security-tools-server.cjs"]
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/security-tools-server.cjs"]
     }
   }
 }
