@@ -8,6 +8,17 @@ description: Multi-gate report quality validation - checks asset accuracy, scope
 ## Usage
 `/greyhatcc:validate <report_file or finding_id> [program_name]`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **CVE ID** (CVE-2024-xxxx) → used for CVE lookup and exploit search
+- **Finding ID** (FIND-001) → looked up in findings_log.md
+- **Description** (free text) → used as search/filter query
+- **File path** → read and analyzed directly
+- **Empty** → error: "Usage: /greyhatcc:<skill> <identifier>"
+
+No format specification needed — detect and proceed.
+
+
 Runs every quality gate on a report before it gets submitted to HackerOne. This is the last line of defense against rejected reports.
 
 ## Context Loading (MANDATORY)
@@ -16,12 +27,6 @@ Before executing this skill:
 2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
 3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
-
-## MANDATORY: Load Context First
-1. Load scope.md — assets, exclusions, rules, bounty table
-2. Load findings_log.md — all findings for cross-reference
-3. Load submissions.json — previously submitted reports
-4. Load the report file being validated
 
 ## Quality Gates (All Must Pass)
 
@@ -314,6 +319,14 @@ AUTO-FIX: Add missing headers to all curl commands. Note correct test account.
 ## Delegation
 - Quick validation (file checks only) → execute directly
 - Full validation with proof re-run → `report-quality-gate` agent (haiku)
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

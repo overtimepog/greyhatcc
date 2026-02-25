@@ -8,6 +8,17 @@ description: Verify PoC reproducibility before submitting - re-runs curl command
 ## Usage
 `/greyhatcc:proof <finding_id or report_file>`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **CVE ID** (CVE-2024-xxxx) → used for CVE lookup and exploit search
+- **Finding ID** (FIND-001) → looked up in findings_log.md
+- **Description** (free text) → used as search/filter query
+- **File path** → read and analyzed directly
+- **Empty** → error: "Usage: /greyhatcc:<skill> <identifier>"
+
+No format specification needed — detect and proceed.
+
+
 Verifies that a finding's Proof of Concept actually works RIGHT NOW. The #1 reason reports get marked N/A is "not reproducible." This skill prevents that.
 
 ## Context Loading (MANDATORY)
@@ -234,6 +245,14 @@ Based on validation result:
 ## Delegation
 - Quick proof check (1-3 commands) → execute directly, no agent needed
 - Complex PoC (scripts, multi-step) → `webapp-tester-low` (haiku)
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

@@ -556,6 +556,14 @@ Before executing this skill:
 3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
+
 ## State Updates
 After completing this skill:
 1. Update `tested.json` — record what was tested (asset + vuln class)

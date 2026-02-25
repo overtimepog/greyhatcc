@@ -8,6 +8,17 @@ description: Format security findings into HackerOne-ready vulnerability reports
 ## Usage
 `/greyhatcc:h1-report <finding_id or description> [program_name]`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **CVE ID** (CVE-2024-xxxx) → used for CVE lookup and exploit search
+- **Finding ID** (FIND-001) → looked up in findings_log.md
+- **Description** (free text) → used as search/filter query
+- **File path** → read and analyzed directly
+- **Empty** → error: "Usage: /greyhatcc:<skill> <identifier>"
+
+No format specification needed — detect and proceed.
+
+
 ## Context Loading (MANDATORY)
 Before executing this skill:
 1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
@@ -267,6 +278,14 @@ Run through this before finalizing:
 - Quick finding notes → `report-writer-low` (haiku) with findings-log skill instead
 
 **The report-writer agent MUST read all context files listed in Step 2 before writing.**
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

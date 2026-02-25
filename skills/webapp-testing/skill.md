@@ -8,6 +8,17 @@ description: OWASP-guided web application security testing covering injection, X
 ## Usage
 `/greyhatcc:webapp <URL>`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically — just provide a target in any format:
+- **URL** (https://example.com/path) → extracted domain + full URL used as target
+- **Domain** (example.com) → https:// prepended, used as target  
+- **IP** (1.2.3.4) → used directly for infrastructure testing
+- **H1 URL** (hackerone.com/program) → program handle extracted, scope loaded via H1 API
+- **Empty** → error: "Usage: /greyhatcc:<skill> <target>"
+
+No format specification needed from user — detect and proceed.
+
+
 ## Context Loading (MANDATORY)
 Before executing this skill:
 1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
@@ -15,15 +26,6 @@ Before executing this skill:
 3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
-Also follow the context-loader protocol:
-1. Load guidelines: CLAUDE.md (attack vectors table, WAF bypass playbook, chaining methodology)
-2. Load program guidelines: scope.md → assets, exclusions (check EVERY finding against the non-qualifying list), rules (required headers!), bounty table
-3. Load engagement: findings_log.md (dedup + chain awareness), gadgets.json, tested.json (skip already-tested)
-4. Load recon: tech_stack.md, subdomains.txt, JS analysis output (api_endpoints.md, secrets_found.md)
-5. Load memory: Target-specific notes (WAF type, bypass techniques that worked, rate limit behavior)
-6. Validate: Target URL is in scope, check program exclusions before reporting any finding
-
-**Key exclusion check**: Many programs exclude missing headers, cookie flags, clickjacking, self-XSS, user enumeration, rate limiting, open redirects without impact. Check the FULL exclusion list BEFORE writing up any finding.
 
 ## Testing Checklist
 
@@ -143,6 +145,14 @@ After each test, update engagement state:
 - Quick security checks → `webapp-tester-low` (sonnet)
 - OWASP Top 10 + Advanced → `webapp-tester` (opus)
 - **Always pass full context** (scope, exclusions, existing findings, recon data) to agents via context-loader pattern
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

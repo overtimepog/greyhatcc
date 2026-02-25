@@ -10,6 +10,17 @@ You are executing the greyhatcc reconnaissance skill. Perform a comprehensive mu
 ## Usage
 `/greyhatcc:recon <target>` where target is a domain, IP, or URL.
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically — just provide a target in any format:
+- **URL** (https://example.com/path) → extracted domain + full URL used as target
+- **Domain** (example.com) → https:// prepended, used as target  
+- **IP** (1.2.3.4) → used directly for infrastructure testing
+- **H1 URL** (hackerone.com/program) → program handle extracted, scope loaded via H1 API
+- **Empty** → error: "Usage: /greyhatcc:<skill> <target>"
+
+No format specification needed from user — detect and proceed.
+
+
 ## Context Loading (MANDATORY)
 Before executing this skill:
 1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
@@ -17,12 +28,6 @@ Before executing this skill:
 3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
-Also follow the context-loader protocol:
-1. Load guidelines: CLAUDE.md (5-phase recon methodology, infrastructure mapping, code intelligence)
-2. Load program guidelines: scope.md → verify target is in scope, note any testing restrictions
-3. Load engagement: findings_log.md (avoid re-discovering known findings), tested.json
-4. Load memory: Check MEMORY.md for target-specific notes from previous sessions (WAF type, bypass techniques, known infrastructure)
-5. If recon was partially done before, check existing artifacts in `recon/` to avoid duplicating work
 
 ## Phase 1: Passive Reconnaissance
 

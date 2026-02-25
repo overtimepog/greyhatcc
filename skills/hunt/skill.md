@@ -15,6 +15,17 @@ Takes a program name or HackerOne URL. Delivers validated, chain-analyzed, Hacke
 
 {{ARGUMENTS}}
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **Program handle** (e.g. `security`) → used directly with H1 API
+- **H1 URL** (https://hackerone.com/security) → program handle extracted
+- **Domain** (example.com) → search H1 programs for matching domain
+- **Empty** → error: "Usage: /greyhatcc:<skill> <program>"
+
+No format specification needed — detect and proceed.
+
+
+
 ---
 
 ## ARCHITECTURE

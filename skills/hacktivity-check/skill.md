@@ -8,6 +8,16 @@ description: Scrape HackerOne hacktivity and disclosed reports to detect duplica
 ## Usage
 `/greyhatcc:hacktivity <program_name> [finding_description]`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **Program handle** (e.g. `security`) → used directly with H1 API
+- **H1 URL** (https://hackerone.com/security) → program handle extracted
+- **Domain** (example.com) → search H1 programs for matching domain
+- **Empty** → error: "Usage: /greyhatcc:<skill> <program>"
+
+No format specification needed — detect and proceed.
+
+
 Searches HackerOne's public hacktivity and disclosed reports for similar findings. This is the external duplicate check — Layer 6 of the dedup system.
 
 ## Context Loading (MANDATORY)
@@ -207,6 +217,14 @@ Then search the returned activities for:
 ## Delegation
 - Quick search (web search only) → execute directly
 - Deep search (Playwright + Perplexity) → `osint-researcher-low` (haiku)
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

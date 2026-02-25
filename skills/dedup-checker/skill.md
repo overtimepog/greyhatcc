@@ -8,6 +8,17 @@ description: Check if a discovered bug has been previously found, reported, or s
 ## Usage
 `/greyhatcc:dedup <finding description or vuln type + endpoint>`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **CVE ID** (CVE-2024-xxxx) → used for CVE lookup and exploit search
+- **Finding ID** (FIND-001) → looked up in findings_log.md
+- **Description** (free text) → used as search/filter query
+- **File path** → read and analyzed directly
+- **Empty** → error: "Usage: /greyhatcc:<skill> <identifier>"
+
+No format specification needed — detect and proceed.
+
+
 Example:
 ```
 /greyhatcc:dedup "CORS misconfiguration on api.example.com"
@@ -223,16 +234,17 @@ This skill is called automatically by:
 
 Manual invocation is for when you want to quickly check before investing time in a full report.
 
-## Context Loading (MANDATORY)
-Before executing this skill:
-1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
-2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
-3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
-4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
-
 ## Delegation
 - Quick local dedup → no delegation needed (just file reads)
 - Hacktivity research → `osint-researcher-low` (haiku) for fast web search
+
+
+## Agent Dispatch Protocol
+When delegating to agents via Task(), ALWAYS:
+1. **Prepend worker preamble**: "[WORKER] Execute directly. No sub-agents. Output ≤500 words. Save findings to disk. 3 failures = stop and report."
+2. **Set max_turns**: haiku=10, sonnet=25, opus=40
+3. **Pass full context**: scope, exclusions, existing findings, recon data
+4. **Route by complexity**: Quick checks → haiku agents (-low). Standard work → sonnet agents. Deep analysis/exploitation → opus agents.
 
 ## State Updates
 After completing this skill:

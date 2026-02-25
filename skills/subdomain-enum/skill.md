@@ -8,6 +8,17 @@ description: Multi-source subdomain enumeration using CT logs, DNS bruteforce, w
 ## Usage
 `/greyhatcc:subdomains <domain>`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically — just provide a target in any format:
+- **URL** (https://example.com/path) → extracted domain + full URL used as target
+- **Domain** (example.com) → https:// prepended, used as target  
+- **IP** (1.2.3.4) → used directly for infrastructure testing
+- **H1 URL** (hackerone.com/program) → program handle extracted, scope loaded via H1 API
+- **Empty** → error: "Usage: /greyhatcc:<skill> <target>"
+
+No format specification needed from user — detect and proceed.
+
+
 ## Context Loading (MANDATORY)
 Before executing this skill:
 1. Load scope: `.greyhatcc/scope.json` — verify target domain is in scope, note exclusions

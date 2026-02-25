@@ -343,16 +343,6 @@ If a context file doesn't exist:
 Every skill should start with this block:
 
 ```markdown
-## MANDATORY: Load Context First
-Before executing this skill, follow the context-loader protocol:
-1. Load guidelines: CLAUDE.md + agent templates (methodology, operating principles)
-2. Load program guidelines: scope.md → extract assets, exclusions, rules, bounty table
-3. Load engagement state: findings_log.md, submissions.json, scope.json
-4. Load phase-specific: recon artifacts, reports, evidence, gadgets.json, tested.json
-5. Load memory: Check MEMORY.md for target-specific learnings from previous sessions
-6. Validate scope + eligibility: Confirm target is in-scope, vuln type is not excluded, finding is not a dupe
-```
-
 ## Anti-Patterns (What Goes Wrong Without This)
 
 | Without Context | What Happens |

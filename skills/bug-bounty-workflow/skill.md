@@ -8,6 +8,16 @@ description: End-to-end bug bounty workflow from program research through Hacker
 ## Usage
 `/greyhatcc:bounty <program_name or HackerOne URL>`
 
+## Smart Input
+`{{ARGUMENTS}}` is parsed automatically:
+- **Program handle** (e.g. `security`) → used directly with H1 API
+- **H1 URL** (https://hackerone.com/security) → program handle extracted
+- **Domain** (example.com) → search H1 programs for matching domain
+- **Empty** → error: "Usage: /greyhatcc:<skill> <program>"
+
+No format specification needed — detect and proceed.
+
+
 ## Context Loading (MANDATORY)
 Before executing this skill:
 1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
@@ -15,10 +25,6 @@ Before executing this skill:
 3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
-Also follow the context-loader protocol:
-1. Load guidelines: CLAUDE.md (full bug bounty methodology section)
-2. If resuming an existing engagement: load scope.md, findings_log.md, gadgets.json, tested.json, attack_plan.md
-3. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
 ## Phases
 
