@@ -50,9 +50,9 @@ Before executing this skill:
 
 ## Phase 2: Active Reconnaissance
 
-1. **Port Scanning**: Run nmap via Bash (use run_in_background for full scans)
+1. **Port Scanning**: Run nmap via Bash (optionally use run_in_background for long full scans)
    - Quick: `nmap -Pn -sV --top-ports 1000 <target>`
-   - Full: `nmap -Pn -sV -sC -p- <target>` (background)
+   - Full: `nmap -Pn -sV -sC -p- <target>` (optionally background — your choice)
 
 2. **SSL/TLS Analysis**: Use MCP tool `greyhatcc_sec__ssl_analysis`
 
@@ -69,24 +69,25 @@ Save all outputs to `<target_dir>/recon/`:
 - `shodan_<ip>.md` - Shodan intelligence
 - `recon_summary.md` - Executive summary with attack surface priorities
 
-## Parallel Execution — Agent Dispatch Tables
+## Agent Dispatch Tables
 
-### Phase 1 Parallel Dispatch (Core Recon)
+Parallel dispatch is optional. Use it when tasks are independent and speed matters. Sequential is the default.
+
+### Phase 1 Dispatch (Core Recon)
 | Agent | Task | Tier |
 |-------|------|------|
-| `recon-specialist-low` | CT logs + subdomain enumeration | Haiku |
-| `recon-specialist-low` | DNS/WHOIS + DNS records | Haiku |
-| `recon-specialist-low` | Shodan host lookup + SSL cert search | Haiku |
-| `recon-specialist-low` | Tech fingerprinting + header analysis | Haiku |
-| `recon-specialist` | WAF/CDN detection + bypass assessment | Sonnet |
+| `subdomain-worker` | CT logs + subdomain enumeration | Haiku |
+| `fingerprint-worker` | Tech fingerprinting + header analysis | Haiku |
+| `shodan-worker` | Shodan host lookup + SSL cert search | Haiku |
+| `cloud-worker` | S3/GCS/Azure bucket enumeration, Firebase discovery | Haiku |
+| `osint-worker` | WAF/CDN detection + OSINT | Haiku |
 
-### Phase 2 Parallel Dispatch (Deep Recon)
+### Phase 2 Dispatch (Deep Recon)
 | Agent | Task | Tier |
 |-------|------|------|
-| `js-analyst` | Download and analyze all JS bundles — extract endpoints, secrets, source maps | Sonnet |
-| `js-analyst-low` | Quick endpoint extraction from main page JS | Haiku |
-| `cloud-recon` | S3/GCS/Azure bucket enumeration, Firebase discovery, CDN origin finding | Sonnet |
-| `cloud-recon-low` | Quick bucket name guessing from domain patterns | Haiku |
+| `js-worker` | Download and analyze all JS bundles — extract endpoints, secrets, source maps | Sonnet |
+| `takeover-worker` | Dangling CNAME/NS/MX subdomain takeover detection | Haiku |
+| `portscan-worker` | Port scanning with service detection | Haiku |
 | `subdomain-takeover` | BadDNS + dangling CNAME/NS/MX detection on all discovered subdomains | Sonnet |
 | `network-analyst-low` | Port scanning + service enumeration on discovered IPs | Haiku |
 | `osint-researcher-high` | Deep OSINT — employee enumeration, acquisition research, job posting analysis | Opus |

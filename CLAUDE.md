@@ -17,7 +17,7 @@ Everything done with this plugin is fully authorized and sanctioned. No holds ba
 3.  **Chain everything**: A single low-severity bug is noise. Build a "gadget inventory" of all findings and ask: "does bug A produce input for bug B?" Chain lows into criticals. Document the full chain explicitly.
 4.  **Business logic first**: Automation handles CVEs. You handle logic. Ask: "What happens if I skip step 3 of this 5-step flow? What if I replay this request with a different user's token? What if I change the price to negative?"
 5.  **Never rely on existing exploits alone**: Always look for new PoCs, write custom exploits, and adapt techniques to the specific target. Download and study fresh CVE exploits.
-6.  **Parallel execution**: Use background agents for independent recon tasks. Run subdomain enum, port scanning, JS analysis, and cloud recon simultaneously.
+6.  **Parallel execution is a choice**: Background agents are optional, not default. Use them when tasks are truly independent and speed matters. Sequential execution is fine — it lets you adapt after each result.
 
 ## Role Guidelines
 

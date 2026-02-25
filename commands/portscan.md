@@ -19,7 +19,7 @@ Intelligent port scanning with adaptive strategies based on target type and scop
 **Scan Types:**
 - **Quick** (top 1000) - Fast initial reconnaissance, identifies common services in seconds
 - **Extended** (top 10000) - Broader coverage for uncommon service ports
-- **Full** (-p-) - All 65535 ports, run in background for comprehensive coverage
+- **Full** (-p-) - All 65535 ports, optionally run in background for comprehensive coverage
 - **Service Detection** (-sV -sC) - Version fingerprinting and default script execution
 - **UDP** - Top 100 UDP ports for DNS, SNMP, TFTP, NTP, and other UDP services
 - **Stealth** (-sS) - SYN scan for reduced detection footprint

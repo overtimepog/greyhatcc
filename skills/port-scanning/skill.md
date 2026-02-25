@@ -40,7 +40,7 @@ Flags: `-Pn` skip host discovery (assume up), `-sV` version detection, `-T4` agg
 nmap -Pn -sV -sC -p- -T3 <target>
 ```
 Flags: `-p-` all 65535 ports, `-sC` default scripts, `-T3` normal timing (less likely to trigger rate limits).
-Use `run_in_background: true` for this — it takes time.
+Consider `run_in_background: true` for this if you have other work to do — it takes time. Foreground is fine if you're waiting for results.
 
 ### Vulnerability — 5-15 minutes
 ```bash
@@ -80,16 +80,18 @@ Use when: WAF/IDS is active, program requires low-noise testing.
 | `-A` | Aggressive (OS + version + scripts + traceroute) | Deep enumeration |
 | `--reason` | Show why port is open/closed | Debugging scan results |
 
-## Background Execution
+## Background Execution (Optional)
 
-For long-running scans, use background execution:
+For long-running scans, you may use background execution if you have other work to do:
 ```bash
-# Full TCP scan in background
+# Full TCP scan — optionally run in background
 nmap -Pn -sV -sC -p- -T3 -oN recon/portscan_full.txt <target>
-# Run with run_in_background: true
+# Set run_in_background: true only if you want to work on something else meanwhile
 ```
 
-Monitor progress:
+Foreground is the default and works fine — you'll get the results immediately.
+
+Monitor background scans:
 ```bash
 # Check if nmap is still running
 ps aux | grep nmap
