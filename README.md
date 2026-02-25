@@ -1,14 +1,15 @@
 # greyhatcc
 
-Autonomous offensive security toolkit for Claude Code. 33 skills, 32 commands, 31 agents, 3 MCP servers (Shodan 18 tools, Security Tools 14 tools, HackerOne API 15 tools), and 8 hooks for credential guarding, scope validation, finding tracking, and context persistence.
+Autonomous offensive security toolkit for Claude Code. 33 skills, 32 commands, 31 agents, 4 MCP servers (Shodan 18 tools, Security Tools 14 tools, HackerOne API 15 tools, Web Tools 24 tools), and 8 hooks for credential guarding, scope validation, finding tracking, and context persistence.
 
-**v6.0.0** — Now with full HackerOne API integration, autopilot-style hunt mode with Task() dispatch, multi-wave attack strategy, signal amplification, graph-based vulnerability chaining, and adaptive WAF evasion.
+**v6.1.0** — New Web Tools MCP server with 24 Burp Suite-equivalent tools: multi-session browser automation, traffic interception, request replay/fuzz, and response analysis. Full HackerOne API integration, autopilot-style hunt mode with Task() dispatch, multi-wave attack strategy, signal amplification, graph-based vulnerability chaining, and adaptive WAF evasion.
 
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) CLI installed
 - Node.js 20+
 - Optional external tools: `nmap`, `subfinder`, `httpx`, `nuclei`, `katana`, `whois`, `dig`
+- Chromium (auto-installed via `npx playwright-core install chromium` on first use)
 
 ## Installation
 
@@ -52,6 +53,16 @@ export H1_API_TOKEN="your_token_here"
 export H1_USERNAME="your_h1_username"
 ```
 Get your API token from [HackerOne API Settings](https://hackerone.com/settings/api_token/edit).
+
+### Web Tools (optional, auto-configured)
+
+```bash
+# Custom Chromium path (optional — auto-detected if installed via playwright-core)
+export CHROMIUM_PATH="/path/to/chromium"
+
+# Run browsers with visible UI instead of headless (default: headless)
+export WEB_TOOLS_HEADLESS="false"
+```
 
 ### NVD API Key (optional, higher rate limits)
 
@@ -233,7 +244,7 @@ Smart model routing: `haiku` for quick checks, `sonnet` for testing workflows, `
 | `common-dupes` | Database of commonly rejected bug types |
 | `doctor` | Plugin health diagnostics |
 
-## MCP Servers (3 servers, 47 tools)
+## MCP Servers (4 servers, 71 tools)
 
 ### HackerOne API (`hackerone`) — 15 tools
 
@@ -296,6 +307,62 @@ Smart model routing: `haiku` for quick checks, `sonnet` for testing workflows, `
 | `subdomain_enum` | Subdomain enumeration via crt.sh CT logs |
 | `port_check` | TCP port scan with banner grab |
 | `redirect_chain` | Redirect chain analysis |
+
+### Web Tools (`web`) — 24 tools
+
+Multi-session browser automation with Burp Suite-equivalent capabilities. Each session runs in an isolated Playwright BrowserContext (~50MB) with independent cookies, storage, and auth state.
+
+#### Session Management
+
+| Tool | Description |
+|------|-------------|
+| `web_session_create` | Create a new isolated browser session with optional proxy, user-agent, viewport |
+| `web_session_list` | List all active sessions with URLs, status, traffic counts |
+| `web_session_close` | Close a session or all sessions, releasing browser resources |
+| `web_cookies` | Get or set cookies for a session |
+
+#### Navigation & Interaction
+
+| Tool | Description |
+|------|-------------|
+| `web_navigate` | Navigate to URL with configurable wait conditions |
+| `web_screenshot` | Capture full-page or element screenshot (base64 PNG) |
+| `web_snapshot` | Get page accessibility tree snapshot (structured DOM) |
+| `web_click` | Click elements by CSS selector |
+| `web_fill` | Fill form fields by CSS selector |
+| `web_evaluate` | Execute arbitrary JavaScript in page context |
+| `web_wait` | Wait for selector, navigation, or timeout |
+
+#### Traffic Interception (Proxy)
+
+| Tool | Description |
+|------|-------------|
+| `web_intercept_start` | Start capturing HTTP traffic with scope patterns |
+| `web_intercept_stop` | Stop traffic interception |
+| `web_intercept_modify` | Add request/response modification rules (header injection, body rewrite) |
+| `web_intercept_modify_remove` | Remove a modification rule |
+| `web_intercept_scope` | Update interception scope patterns |
+
+#### Request Manipulation (Repeater/Intruder)
+
+| Tool | Description |
+|------|-------------|
+| `web_request_send` | Send raw HTTP request (like Burp Repeater) |
+| `web_request_replay` | Replay a captured traffic entry with modifications |
+| `web_request_fuzz` | Fuzz parameters with wordlist using FUZZ placeholder (like Burp Intruder) |
+
+#### Analysis
+
+| Tool | Description |
+|------|-------------|
+| `web_traffic_list` | List captured traffic entries with URL/method/status filters |
+| `web_traffic_detail` | Full request/response detail for a traffic entry |
+| `web_traffic_search` | Regex/substring search across all captured traffic |
+| `web_traffic_export` | Export traffic as JSON, cURL commands, or Markdown |
+| `web_forms_extract` | Extract all forms from current page |
+| `web_links_extract` | Extract all links from current page |
+| `web_js_extract` | Extract JavaScript files and inline scripts |
+| `web_storage_dump` | Dump localStorage, sessionStorage, and cookies |
 
 ## Hooks (8)
 
@@ -383,10 +450,11 @@ All external tools are optional — hunt mode gracefully degrades if unavailable
 
 ```bash
 npm install
-npm run build            # Build all 3 MCP servers
+npm run build            # Build all 4 MCP servers
 npm run build:shodan     # Build Shodan server only
 npm run build:sectools   # Build security tools server only
 npm run build:hackerone   # Build HackerOne server only
+npm run build:webtools   # Build web tools server only
 npm run typecheck        # TypeScript type checking
 ```
 
@@ -398,7 +466,8 @@ greyhatcc/
 ├── bridge/              # Compiled MCP server bundles (CJS)
 │   ├── hackerone-server.cjs
 │   ├── security-tools-server.cjs
-│   └── shodan-server.cjs
+│   ├── shodan-server.cjs
+│   └── web-tools-server.cjs
 ├── commands/            # 32 slash command definitions
 ├── config/              # Example configuration
 ├── hooks/               # hooks.json event registry
@@ -410,7 +479,8 @@ greyhatcc/
 │   ├── servers/
 │   │   ├── hackerone/        # HackerOne API v1 client (15 tools)
 │   │   ├── security-tools/   # CVE, exploit, header, WAF, CORS, etc.
-│   │   └── shodan/           # Shodan API client (18 tools)
+│   │   ├── shodan/           # Shodan API client (18 tools)
+│   │   └── web-tools/        # Browser automation + Burp Suite tools (24 tools)
 │   └── shared/               # Config and type definitions
 ├── .mcp.json            # MCP server declarations
 ├── esbuild.config.mjs   # Build configuration
