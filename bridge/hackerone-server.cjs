@@ -20880,7 +20880,14 @@ var DEFAULT_CONFIG = {
     scripts: "scripts",
     notes: "notes"
   },
-  hackerone: {}
+  hackerone: {},
+  webTools: {
+    headless: true,
+    maxSessions: 20,
+    maxTrafficEntries: 5e3,
+    maxBodySize: 1048576,
+    defaultScope: ["**/*"]
+  }
 };
 function loadJsonFile(path) {
   try {
@@ -20924,6 +20931,14 @@ function loadConfig() {
   }
   if (process.env.H1_USERNAME) {
     config2.hackerone.username = process.env.H1_USERNAME;
+  }
+  if (process.env.CHROMIUM_PATH) {
+    config2.webTools = config2.webTools || {};
+    config2.webTools.chromiumPath = process.env.CHROMIUM_PATH;
+  }
+  if (process.env.WEB_TOOLS_HEADLESS === "false") {
+    config2.webTools = config2.webTools || {};
+    config2.webTools.headless = false;
   }
   return config2;
 }

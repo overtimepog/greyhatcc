@@ -3493,7 +3493,7 @@ var require_schemes = __commonJS({
       urnComponent.nss = (uuidComponent.uuid || "").toLowerCase();
       return urnComponent;
     }
-    var http = (
+    var http2 = (
       /** @type {SchemeHandler} */
       {
         scheme: "http",
@@ -3502,11 +3502,11 @@ var require_schemes = __commonJS({
         serialize: httpSerialize
       }
     );
-    var https = (
+    var https2 = (
       /** @type {SchemeHandler} */
       {
         scheme: "https",
-        domainHost: http.domainHost,
+        domainHost: http2.domainHost,
         parse: httpParse,
         serialize: httpSerialize
       }
@@ -3550,8 +3550,8 @@ var require_schemes = __commonJS({
     var SCHEMES = (
       /** @type {Record<SchemeName, SchemeHandler>} */
       {
-        http,
-        https,
+        http: http2,
+        https: https2,
         ws,
         wss,
         urn,
@@ -6809,6 +6809,9 @@ var require_dist = __commonJS({
     exports2.default = formatsPlugin;
   }
 });
+
+// src/servers/web-tools/index.ts
+var import_node_crypto = require("node:crypto");
 
 // node_modules/zod/v3/helpers/util.js
 var util;
@@ -20685,436 +20688,57 @@ var StdioServerTransport = class {
   }
 };
 
-// src/servers/shodan/rate-limiter.ts
-var RateLimiter = class {
-  constructor(maxTokens = 1, refillRate = 1) {
-    this.maxTokens = maxTokens;
-    this.refillRate = refillRate;
-    this.tokens = maxTokens;
-    this.lastRefill = Date.now();
-  }
-  tokens;
-  lastRefill;
-  refill() {
-    const now = Date.now();
-    const elapsed = (now - this.lastRefill) / 1e3;
-    this.tokens = Math.min(this.maxTokens, this.tokens + elapsed * this.refillRate);
-    this.lastRefill = now;
-  }
-  async acquire() {
-    this.refill();
-    if (this.tokens >= 1) {
-      this.tokens -= 1;
-      return;
-    }
-    const waitMs = (1 - this.tokens) / this.refillRate * 1e3;
-    await new Promise((resolve) => setTimeout(resolve, Math.ceil(waitMs)));
-    this.tokens = 0;
-    this.lastRefill = Date.now();
-  }
-};
+// src/servers/web-tools/index.ts
+var import_playwright_core = require("playwright-core");
 
-// src/servers/shodan/client.ts
-var BASE_URL = "https://api.shodan.io";
-var EXPLOITS_URL = "https://exploits.shodan.io/api";
-var INTERNETDB_URL = "https://internetdb.shodan.io";
-var ShodanClient = class {
-  // 1 req/sec
-  constructor(apiKey2) {
-    this.apiKey = apiKey2;
-  }
-  rateLimiter = new RateLimiter(1, 1);
-  // ── Core fetch methods ───────────────────────────────────────────
-  async fetch(url2, params = {}) {
-    await this.rateLimiter.acquire();
-    const searchParams = new URLSearchParams({ key: this.apiKey, ...params });
-    const fullUrl = `${url2}?${searchParams}`;
-    let res;
-    try {
-      res = await globalThis.fetch(fullUrl, { redirect: "error" });
-    } catch (err) {
-      if (err?.message?.includes("redirect")) {
-        throw new Error("Shodan API error: unexpected redirect");
-      }
-      throw new Error("Shodan API error: network request failed");
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Shodan API error (${res.status}): ${text}`);
-    }
-    return res.json();
-  }
-  /** Fetch from endpoints that don't need an API key (e.g. InternetDB). */
-  async fetchNoAuth(url2) {
-    await this.rateLimiter.acquire();
-    let res;
-    try {
-      res = await globalThis.fetch(url2, { redirect: "error" });
-    } catch (err) {
-      if (err?.message?.includes("redirect")) {
-        throw new Error("API error: unexpected redirect");
-      }
-      throw new Error("API error: network request failed");
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`API error (${res.status}): ${text}`);
-    }
-    return res.json();
-  }
-  /** POST with API key in query string and form body. */
-  async post(url2, body, params = {}) {
-    await this.rateLimiter.acquire();
-    const searchParams = new URLSearchParams({ key: this.apiKey, ...params });
-    const fullUrl = `${url2}?${searchParams}`;
-    let res;
-    try {
-      res = await globalThis.fetch(fullUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(body).toString(),
-        redirect: "error"
-      });
-    } catch (err) {
-      if (err?.message?.includes("redirect")) {
-        throw new Error("Shodan API error: unexpected redirect");
-      }
-      throw new Error("Shodan API error: network request failed");
-    }
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Shodan API error (${res.status}): ${text}`);
-    }
-    return res.json();
-  }
-  // ── Host Intelligence ────────────────────────────────────────────
-  async hostLookup(ip, options) {
-    const params = {};
-    if (options?.history)
-      params.history = "true";
-    if (options?.minify)
-      params.minify = "true";
-    return this.fetch(`${BASE_URL}/shodan/host/${encodeURIComponent(ip)}`, params);
-  }
-  // ── Search ───────────────────────────────────────────────────────
-  async search(query, options) {
-    const params = { query };
-    if (options?.facets)
-      params.facets = options.facets;
-    if (options?.page)
-      params.page = String(options.page);
-    if (options?.minify)
-      params.minify = "true";
-    return this.fetch(`${BASE_URL}/shodan/host/search`, params);
-  }
-  async count(query, facets) {
-    const params = { query };
-    if (facets)
-      params.facets = facets;
-    return this.fetch(`${BASE_URL}/shodan/host/count`, params);
-  }
-  async searchTokens(query) {
-    return this.fetch(`${BASE_URL}/shodan/host/search/tokens`, { query });
-  }
-  async searchFacets() {
-    return this.fetch(`${BASE_URL}/shodan/host/search/facets`);
-  }
-  async searchFilters() {
-    return this.fetch(`${BASE_URL}/shodan/host/search/filters`);
-  }
-  // ── InternetDB (free, no auth) ───────────────────────────────────
-  async internetDb(ip) {
-    return this.fetchNoAuth(`${INTERNETDB_URL}/${encodeURIComponent(ip)}`);
-  }
-  // ── DNS ──────────────────────────────────────────────────────────
-  async dnsResolve(hostnames) {
-    return this.fetch(`${BASE_URL}/dns/resolve`, { hostnames });
-  }
-  async dnsReverse(ips) {
-    return this.fetch(`${BASE_URL}/dns/reverse`, { ips });
-  }
-  async dnsDomain(domain2, options) {
-    const params = {};
-    if (options?.history)
-      params.history = "true";
-    if (options?.type)
-      params.type = options.type;
-    if (options?.page)
-      params.page = String(options.page);
-    return this.fetch(`${BASE_URL}/dns/domain/${encodeURIComponent(domain2)}`, params);
-  }
-  // ── Exploits ─────────────────────────────────────────────────────
-  async exploitsSearch(query, options) {
-    const params = { query };
-    if (options?.type)
-      params.type = options.type;
-    if (options?.facets)
-      params.facets = options.facets;
-    if (options?.page)
-      params.page = String(options.page);
-    return this.fetch(`${EXPLOITS_URL}/search`, params);
-  }
-  // ── Convenience: ports & vulns with InternetDB fallback ──────────
-  async ports(ip) {
-    try {
-      const idb = await this.internetDb(ip);
-      if (idb.ports?.length) {
-        return { ports: idb.ports, source: "internetdb" };
-      }
-    } catch {
-    }
-    const result = await this.hostLookup(ip, { minify: true });
-    return { ports: result.ports || [], source: "shodan" };
-  }
-  async vulns(ip) {
-    try {
-      const idb = await this.internetDb(ip);
-      if (idb.vulns?.length) {
-        return { vulns: idb.vulns, source: "internetdb" };
-      }
-    } catch {
-    }
-    const result = await this.hostLookup(ip);
-    return { vulns: result.vulns || [], source: "shodan" };
-  }
-  // ── SSL cert search ──────────────────────────────────────────────
-  async sslCert(hostname3, options) {
-    return this.search(`ssl.cert.subject.cn:${hostname3}`, { minify: options?.minify });
-  }
-  // ── Scanning ─────────────────────────────────────────────────────
-  async scan(ips) {
-    return this.post(`${BASE_URL}/shodan/scan`, { ips });
-  }
-  async scanStatus(id) {
-    return this.fetch(`${BASE_URL}/shodan/scan/${encodeURIComponent(id)}`);
-  }
-  // ── Utility ──────────────────────────────────────────────────────
-  async honeypotCheck(ip) {
-    return this.fetch(`${BASE_URL}/labs/honeyscore/${encodeURIComponent(ip)}`);
-  }
-  async apiInfo() {
-    return this.fetch(`${BASE_URL}/api-info`);
-  }
-};
-
-// src/servers/shodan/tools.ts
-var SHODAN_TOOLS = [
-  // ── Host Intelligence ──────────────────────────────────────────────
+// src/servers/web-tools/tools.ts
+var WEB_TOOLS = [
+  // ── Session Management ───────────────────────────────────────────
   {
-    name: "shodan_host_lookup",
-    description: 'Get all available information for a host IP: open ports, banners, services, vulnerabilities, organization, OS, geolocation, and SSL certs. FREE (no query credits). Use `minify: true` to cut response size, `summary: true` for a compact markdown table, or `fields` to select specific keys (e.g. "ip_str,ports,vulns,org,data.port,data.product").',
+    name: "web_session_create",
+    description: "Create a new isolated browser session (Playwright context). Each session has its own cookies, storage, and network state \u2014 like opening a fresh browser profile. Use multiple sessions to test cross-user interactions (attacker vs victim), compare authenticated vs unauthenticated views, or isolate scope during multi-target engagements. Equivalent to opening a new Burp project or browser profile.",
     inputSchema: {
       type: "object",
       properties: {
-        ip: { type: "string", description: "Target IP address to look up" },
-        history: { type: "boolean", description: "Include all historical banners (default: false). WARNING: can return very large responses." },
-        minify: { type: "boolean", description: "Only return ports, vulns, hostnames, tags, OS, org (default: false)" },
-        fields: { type: "string", description: 'Comma-separated dot-notation fields to extract, e.g. "ip_str,ports,vulns,org,data.port,data.product,data.ssl.cert.subject"' },
-        summary: { type: "boolean", description: "Return a compact markdown summary table instead of raw JSON (default: false)" }
+        session_id: { type: "string", description: 'Custom session identifier. Auto-generated if omitted. Use descriptive names like "attacker", "victim", "admin" for multi-session testing.' },
+        headless: { type: "boolean", description: "Run browser in headless mode (default: true). Set false to watch interactions visually for debugging." },
+        user_agent: { type: "string", description: "Custom User-Agent string. Useful for fingerprint evasion, mobile app simulation, or testing UA-based access controls." },
+        viewport: {
+          type: "object",
+          properties: {
+            width: { type: "number", description: "Viewport width in pixels" },
+            height: { type: "number", description: "Viewport height in pixels" }
+          },
+          description: "Browser viewport dimensions. Use mobile sizes (375x812) to test responsive endpoints or mobile-only features."
+        },
+        extra_headers: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: "Headers injected into every request from this session. Useful for auth tokens (Authorization: Bearer ...), custom API keys, or X-Forwarded-For spoofing."
+        },
+        proxy: {
+          type: "object",
+          properties: {
+            server: { type: "string", description: "Proxy URL (e.g. http://127.0.0.1:8080 for Burp, socks5://proxy:1080)" },
+            username: { type: "string", description: "Proxy authentication username" },
+            password: { type: "string", description: "Proxy authentication password" }
+          },
+          description: "Route session traffic through a proxy. Chain with Burp Suite for manual inspection, or use residential proxies for IP rotation."
+        },
+        scope: {
+          type: "array",
+          items: { type: "string" },
+          description: 'URL patterns to restrict traffic capture to (e.g. ["*://target.com/*"]). Only matching requests are logged. Keeps traffic clean during testing.'
+        },
+        intercept: { type: "boolean", description: "Enable request interception from session start. Allows modifying requests/responses in-flight via web_intercept_modify rules." },
+        ignore_https_errors: { type: "boolean", description: "Ignore TLS certificate errors (self-signed, expired, mismatched). Essential for testing staging environments and internal targets." }
       },
-      required: ["ip"]
-    }
-  },
-  // ── Search ─────────────────────────────────────────────────────────
-  {
-    name: "shodan_search",
-    description: `Search Shodan for hosts matching a query. Costs 1 query credit per page.
-
-SEARCH FILTERS (use in query string):
-  General: port, org, asn, country, city, state, net, ip, hostname, os, product, version, cpe, device, geo, isp, has_vuln, has_ssl, has_screenshot, has_ipv6, scan
-  HTTP: http.title, http.status, http.html, http.component, http.component_category, http.favicon.hash, http.waf, http.server_hash, http.headers_hash
-  SSL: ssl.cert.subject.cn, ssl.cert.issuer.cn, ssl.cert.expired, ssl.cert.serial, ssl.cert.fingerprint, ssl.jarm, ssl.ja3s, ssl.version, ssl.cipher.name, ssl.alpn
-  Cloud: cloud.provider, cloud.region, cloud.service
-  SSH: ssh.hassh, ssh.type
-  Screenshots: screenshot.label, screenshot.hash
-
-FACETS (for statistical breakdowns): country, org, port, asn, domain, city, product, version, os, device, ssl.version, ssl.cert.issuer.cn, cloud.provider, http.component, http.title, vuln
-  Format: "facet:count" e.g. "country:10,org:5,port:20"
-
-Defaults to 5 results. Use limit to increase (max 100). Use summary:true for markdown tables. Use fields to select specific keys per result.`,
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: 'Shodan query with filters. Examples: "apache country:US port:443", "ssl.cert.subject.cn:example.com", "http.favicon.hash:116323821", "product:nginx vuln:CVE-2021-23017", "has_screenshot:true city:London"' },
-        facets: { type: "string", description: 'Comma-separated facets with optional count, e.g. "country:10,org:5,port:20"' },
-        page: { type: "number", description: "Page number (default: 1). Each page past 1 costs 1 additional credit." },
-        limit: { type: "number", description: "Max results to return from this page, 1-100 (default: 5). Does NOT affect credit cost \u2014 just truncates response." },
-        fields: { type: "string", description: 'Comma-separated fields per result, e.g. "ip_str,port,org,product,http.title,ssl.cert.subject.cn"' },
-        minify: { type: "boolean", description: "Request minified results from API (default: false)" },
-        summary: { type: "boolean", description: "Return markdown summary table instead of JSON (default: false)" }
-      },
-      required: ["query"]
+      required: []
     }
   },
   {
-    name: "shodan_count",
-    description: "Count results for a Shodan query WITHOUT consuming query credits (FREE). Returns total count and optional facet breakdowns. ALWAYS use this before shodan_search to preview result volume and save credits. Supports the same query filters and facets as shodan_search.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Shodan search query (same syntax as shodan_search)" },
-        facets: { type: "string", description: 'Comma-separated facets, e.g. "country:10,org:5,port:20,product:10"' }
-      },
-      required: ["query"]
-    }
-  },
-  {
-    name: "shodan_search_tokens",
-    description: "Parse a Shodan search query into tokens (FREE). Shows how Shodan interprets your query \u2014 useful for debugging complex filter queries. Returns parsed filters, string tokens, and error messages.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Shodan search query to tokenize" }
-      },
-      required: ["query"]
-    }
-  },
-  // ── InternetDB (Free, No Auth) ─────────────────────────────────────
-  {
-    name: "shodan_internetdb",
-    description: "Fast IP triage via InternetDB \u2014 FREE, no API key needed. Returns open ports, known CVEs, hostnames, CPEs, and tags for any IP. Updated weekly. Use this for quick recon before spending credits on full shodan_host_lookup. Great for bulk IP triage.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ip: { type: "string", description: "Target IP address (IPv4 only)" },
-        summary: { type: "boolean", description: "Return compact markdown summary (default: false)" }
-      },
-      required: ["ip"]
-    }
-  },
-  // ── DNS ────────────────────────────────────────────────────────────
-  {
-    name: "shodan_dns_resolve",
-    description: "Resolve hostnames to IP addresses (FREE). Accepts up to 100 hostnames.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        hostnames: { type: "string", description: "Comma-separated hostnames to resolve (max 100)" }
-      },
-      required: ["hostnames"]
-    }
-  },
-  {
-    name: "shodan_dns_reverse",
-    description: "Reverse DNS lookup for IP addresses (FREE). Accepts up to 100 IPs.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ips: { type: "string", description: "Comma-separated IPs for reverse DNS (max 100)" }
-      },
-      required: ["ips"]
-    }
-  },
-  {
-    name: "shodan_dns_domain",
-    description: "Enumerate subdomains and DNS records for a domain. Costs 1 query credit. Returns all discovered subdomains with their A, AAAA, CNAME, MX, NS, SOA, TXT records. Excellent for subdomain discovery and attack surface mapping.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        domain: { type: "string", description: 'Domain to enumerate (e.g. "example.com")' },
-        history: { type: "boolean", description: "Include historical DNS data (default: false)" },
-        type: { type: "string", description: "DNS record type filter: A, AAAA, CNAME, MX, NS, SOA, TXT" },
-        page: { type: "number", description: "Page number (default: 1)" },
-        summary: { type: "boolean", description: "Return markdown summary (default: false)" }
-      },
-      required: ["domain"]
-    }
-  },
-  // ── Exploits ───────────────────────────────────────────────────────
-  {
-    name: "shodan_exploits_search",
-    description: "Search for known exploits by CVE, product name, or keyword. Returns exploit DB entries, Metasploit modules, and Nuclei templates. Use facets for statistical breakdowns by type/platform/source.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: 'Search query \u2014 CVE ID (e.g. "CVE-2021-44228"), product name (e.g. "Apache"), or keyword' },
-        type: { type: "string", enum: ["exploit", "metasploit", "nuclei"], description: "Filter by exploit type" },
-        facets: { type: "string", description: 'Comma-separated facets (e.g. "type,platform,source")' },
-        page: { type: "number", description: "Page number (default: 1)" },
-        limit: { type: "number", description: "Max results to return (default: 10)" },
-        summary: { type: "boolean", description: "Return markdown summary (default: false)" }
-      },
-      required: ["query"]
-    }
-  },
-  // ── Convenience Host Tools ─────────────────────────────────────────
-  {
-    name: "shodan_ports",
-    description: "List open ports for an IP. Tries FREE InternetDB first; falls back to Shodan host lookup if InternetDB has no data.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ip: { type: "string", description: "Target IP address" },
-        summary: { type: "boolean", description: "Return markdown summary (default: false)" }
-      },
-      required: ["ip"]
-    }
-  },
-  {
-    name: "shodan_vulns",
-    description: "Get known CVEs for an IP. Tries FREE InternetDB first; falls back to Shodan host lookup if InternetDB has no data.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ip: { type: "string", description: "Target IP address" },
-        summary: { type: "boolean", description: "Return markdown summary (default: false)" }
-      },
-      required: ["ip"]
-    }
-  },
-  // ── SSL/TLS ────────────────────────────────────────────────────────
-  {
-    name: "shodan_ssl_cert",
-    description: "Search for SSL certificates by hostname to discover related infrastructure, CDN origins, shadow IT, and certificate transparency. Uses shodan_search with ssl.cert.subject.cn filter. Costs 1 query credit.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        hostname: { type: "string", description: 'Hostname to search SSL certs for (e.g. "example.com")' },
-        limit: { type: "number", description: "Max results (default: 5)" },
-        fields: { type: "string", description: 'Comma-separated fields per result, e.g. "ip_str,port,ssl.cert.subject,ssl.cert.issuer,ssl.cert.expires"' },
-        summary: { type: "boolean", description: "Return markdown summary (default: false)" }
-      },
-      required: ["hostname"]
-    }
-  },
-  // ── Scanning ───────────────────────────────────────────────────────
-  {
-    name: "shodan_scan",
-    description: "Request Shodan to scan specific IPs on-demand. Costs 1 scan credit per IP. Returns a scan ID \u2014 check progress with shodan_scan_status. Results appear in shodan_host_lookup once complete.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ips: { type: "string", description: 'Comma-separated IPs to scan (e.g. "1.2.3.4,5.6.7.8")' }
-      },
-      required: ["ips"]
-    }
-  },
-  {
-    name: "shodan_scan_status",
-    description: "Check the status of a previously submitted on-demand scan (FREE). Returns status: SUBMITTING, QUEUE, PROCESSING, or DONE.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        id: { type: "string", description: "Scan ID returned by shodan_scan" }
-      },
-      required: ["id"]
-    }
-  },
-  // ── Utility (All Free) ─────────────────────────────────────────────
-  {
-    name: "shodan_honeypot_check",
-    description: "Check if an IP is a known honeypot. Returns score 0.0-1.0 (higher = more likely honeypot). Use before engaging targets.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        ip: { type: "string", description: "IP address to check" }
-      },
-      required: ["ip"]
-    }
-  },
-  {
-    name: "shodan_api_info",
-    description: "Check Shodan API plan info, remaining query/scan credits, monitored IPs, and usage limits (FREE).",
+    name: "web_session_list",
+    description: "List all active browser sessions with their configuration, page count, and traffic statistics. Use to audit session state during complex multi-session testing scenarios or before cleanup.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -21122,24 +20746,1280 @@ Defaults to 5 results. Use limit to increase (max 100). Use summary:true for mar
     }
   },
   {
-    name: "shodan_search_facets",
-    description: "List all available Shodan search facets (FREE). Returns every facet you can use with shodan_search and shodan_count for statistical breakdowns.",
+    name: "web_session_close",
+    description: 'Close and destroy a browser session, releasing all resources. Pass "all" to tear down every session. Always clean up after testing to free memory and prevent stale state from contaminating subsequent tests.',
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        session_id: { type: "string", description: 'Session to close. Use "all" to close every active session.' }
+      },
+      required: ["session_id"]
+    }
+  },
+  {
+    name: "web_session_cookies",
+    description: "Get or set cookies for a browser session. Retrieve all cookies to inspect authentication tokens, session IDs, CSRF tokens, and tracking cookies. Set cookies to inject stolen session tokens, test cookie-based access controls, or replay authenticated sessions without re-logging in. Equivalent to Burp's cookie jar management.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Target session. Uses default session if omitted." },
+        cookies: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Cookie name" },
+              value: { type: "string", description: "Cookie value" },
+              domain: { type: "string", description: "Cookie domain scope" },
+              path: { type: "string", description: "Cookie path scope" },
+              httpOnly: { type: "boolean", description: "HttpOnly flag" },
+              secure: { type: "boolean", description: "Secure flag" },
+              sameSite: { type: "string", enum: ["Strict", "Lax", "None"], description: "SameSite attribute" },
+              expires: { type: "number", description: "Expiry as Unix timestamp" }
+            }
+          },
+          description: "Cookies to set. Omit to retrieve current cookies instead."
+        },
+        url: { type: "string", description: "URL context for getting cookies. Filters returned cookies to those matching the URL domain/path." },
+        clear: { type: "boolean", description: "Clear all cookies before setting new ones. Useful for testing unauthenticated behavior or resetting session state." }
+      },
+      required: []
+    }
+  },
+  // ── Navigation & Interaction ─────────────────────────────────────
+  {
+    name: "web_navigate",
+    description: "Navigate the browser to a URL. This is your primary tool for loading pages, following links, and testing endpoints. Supports full page lifecycle control \u2014 wait for DOM, network idle, or just the initial commit. Captures the final URL (after redirects), status code, and response headers. Use with web_snapshot or web_screenshot to inspect results.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "URL to navigate to. Supports http://, https://, and data: URIs." },
+        session_id: { type: "string", description: "Session to use. Uses default session if omitted." },
+        wait_until: { type: "string", enum: ["load", "domcontentloaded", "networkidle", "commit"], description: 'When to consider navigation complete. "networkidle" waits for no network activity for 500ms \u2014 best for SPAs. "commit" returns as soon as the server responds \u2014 fastest for recon.' },
+        timeout: { type: "number", description: "Navigation timeout in milliseconds (default: 30000). Increase for slow targets or reduce for rapid scanning." }
+      },
+      required: ["url"]
+    }
+  },
+  {
+    name: "web_screenshot",
+    description: "Capture a screenshot of the current page or a specific element. Returns a base64-encoded PNG image. Essential for visual verification of XSS payloads, UI redress attacks, documenting admin panel access, and creating PoC evidence for bug bounty reports. Use full_page for complete page capture or selector for targeted element screenshots.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to capture. Uses default session if omitted." },
+        full_page: { type: "boolean", description: "Capture the entire scrollable page, not just the viewport (default: false)." },
+        selector: { type: "string", description: "CSS selector to screenshot a specific element instead of the full viewport." },
+        quality: { type: "number", description: "JPEG quality 0-100. Only applies if format is JPEG. Lower quality = smaller output for faster transfer." }
+      },
       required: []
     }
   },
   {
-    name: "shodan_search_filters",
-    description: "List all available Shodan search filters (FREE). Returns every filter keyword you can use in search queries (e.g. port, org, http.title, ssl.cert.subject.cn, etc.).",
+    name: "web_snapshot",
+    description: "Get the accessibility tree (AX tree) of the current page \u2014 a structured, text-based representation of all interactive elements, their roles, names, and states. Far more useful than raw HTML for understanding page structure, finding hidden form fields, identifying clickable elements behind overlays, and discovering elements invisible to visual inspection. This is the preferred way to understand page content.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        session_id: { type: "string", description: "Session to snapshot. Uses default session if omitted." },
+        selector: { type: "string", description: "CSS selector to scope the snapshot to a subtree of the page." },
+        include_hidden: { type: "boolean", description: "Include hidden/aria-hidden elements in the tree. Useful for finding hidden inputs, debug panels, and admin-only UI." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_click",
+    description: "Click an element on the page by CSS selector. Supports left/right/middle click and double-click. Waits for the element to be actionable (visible, enabled, stable) before clicking. Use for navigating multi-step flows, submitting forms, triggering JavaScript event handlers, and interacting with SPAs. Right-click can reveal context menus with hidden options.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        selector: { type: "string", description: "CSS selector for the element to click." },
+        session_id: { type: "string", description: "Session to use. Uses default session if omitted." },
+        button: { type: "string", enum: ["left", "right", "middle"], description: "Mouse button to click (default: left)." },
+        click_count: { type: "number", description: "Number of clicks (2 for double-click). Double-click can trigger different event handlers." },
+        timeout: { type: "number", description: "Timeout in milliseconds to wait for element to be clickable (default: 30000)." }
+      },
+      required: ["selector"]
+    }
+  },
+  {
+    name: "web_fill",
+    description: "Fill a form input field with a value. Clears existing content first, then types the new value triggering all input/change events. Use for login forms, search fields, registration flows, and injecting payloads into input fields. For testing XSS, SQLi, and other injection vectors through the actual browser DOM \u2014 triggers the same validation as real user input.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        selector: { type: "string", description: "CSS selector for the input/textarea element." },
+        value: { type: "string", description: "Value to fill into the field. Supports any string including XSS payloads, SQL injection strings, etc." },
+        session_id: { type: "string", description: "Session to use. Uses default session if omitted." },
+        timeout: { type: "number", description: "Timeout in milliseconds to wait for element (default: 30000)." }
+      },
+      required: ["selector", "value"]
+    }
+  },
+  {
+    name: "web_evaluate",
+    description: "Execute arbitrary JavaScript in the page context and return the result. The most powerful interaction tool \u2014 access the DOM, call application functions, read JavaScript variables, modify client-side state, extract data from SPAs, bypass client-side validation, trigger hidden API calls, and test DOM-based XSS. Equivalent to the browser DevTools console. Expression result is serialized and returned.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        expression: { type: "string", description: "JavaScript expression or statement to evaluate in the page context. The return value of the last expression is captured." },
+        session_id: { type: "string", description: "Session to use. Uses default session if omitted." }
+      },
+      required: ["expression"]
+    }
+  },
+  {
+    name: "web_wait",
+    description: "Wait for a specific condition before proceeding \u2014 element visibility, element removal, or network idle. Essential for testing SPAs and JavaScript-heavy applications where content loads asynchronously. Use network_idle to wait for all AJAX/fetch calls to complete, or selector-based waits to synchronize with dynamic UI updates.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to use. Uses default session if omitted." },
+        selector: { type: "string", description: "CSS selector to wait for. Combine with state to control the expected condition." },
+        state: { type: "string", enum: ["visible", "hidden", "attached", "detached"], description: 'Expected element state: "visible" (rendered and not hidden), "hidden" (not visible), "attached" (in DOM), "detached" (removed from DOM).' },
+        network_idle: { type: "boolean", description: "Wait until no network requests for 500ms. Best for waiting on SPA data loading." },
+        timeout: { type: "number", description: "Maximum wait time in milliseconds (default: 30000). Fails if condition not met within timeout." }
+      },
+      required: []
+    }
+  },
+  // ── Request Interception / Burp Proxy ────────────────────────────
+  {
+    name: "web_intercept_enable",
+    description: "Start capturing all HTTP/HTTPS traffic flowing through the browser session. Functions as a built-in Burp Suite Proxy \u2014 every request and response is logged with full headers, bodies, timing, and metadata. Use scope patterns to filter to target domains only. Once enabled, use web_traffic_search to find interesting requests, web_traffic_get to inspect details, and web_traffic_export to extract data for analysis.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to enable interception on. Uses default session if omitted." },
+        scope: {
+          type: "array",
+          items: { type: "string" },
+          description: 'URL patterns to capture (e.g. ["*://api.target.com/*", "*://target.com/api/*"]). Only matching requests are logged. Omit to capture everything.'
+        },
+        capture_body: { type: "boolean", description: "Capture request and response bodies (default: true). Disable for high-traffic targets to save memory." },
+        max_body_size: { type: "number", description: "Maximum body size in bytes to capture per request/response (default: 1MB). Prevents memory exhaustion from large file downloads." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_intercept_disable",
+    description: "Stop capturing traffic on a session. Existing captured traffic is preserved and remains searchable. Use when you have enough data or need to reduce overhead for performance-sensitive interactions.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to disable interception on. Uses default session if omitted." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_traffic_search",
+    description: "Search captured HTTP traffic by pattern \u2014 the equivalent of Burp Suite's HTTP History search. Find API endpoints, tokens in headers, secrets in responses, sensitive data in request bodies, and interesting parameters. Search across URLs, headers, and bodies simultaneously or target specific locations. Supports both literal string and regex matching. Essential for post-navigation reconnaissance.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to search. Uses default session if omitted." },
+        pattern: { type: "string", description: 'Search pattern. Matches against the selected scope (url, headers, body, or all). Examples: "api/v1", "Bearer ", "password", "token", "SELECT.*FROM".' },
+        regex: { type: "boolean", description: 'Treat pattern as a regular expression (default: false). Enables complex matching like "api_key[=:]\\s*[a-zA-Z0-9]{32}".' },
+        in: { type: "string", enum: ["all", "url", "request_headers", "request_body", "response_headers", "response_body"], description: 'Where to search (default: "all"). Narrow scope for faster, more precise results.' },
+        method: { type: "string", description: "Filter by HTTP method (GET, POST, PUT, DELETE, etc.)." },
+        status_code: { type: "number", description: "Filter by response status code (e.g. 200, 302, 403, 500)." },
+        mime_type: { type: "string", description: 'Filter by response MIME type (e.g. "application/json", "text/html").' },
+        limit: { type: "number", description: "Maximum number of results to return (default: 50)." }
+      },
+      required: ["pattern"]
+    }
+  },
+  {
+    name: "web_traffic_get",
+    description: "Get the full details of a specific captured traffic entry by its ID \u2014 complete request and response including headers, body, timing, and TLS info. Equivalent to clicking a request in Burp's HTTP History to view its full contents. Use after web_traffic_search to drill into interesting entries.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session the entry belongs to. Uses default session if omitted." },
+        entry_id: { type: "number", description: "Traffic entry ID as returned by web_traffic_search." }
+      },
+      required: ["entry_id"]
+    }
+  },
+  {
+    name: "web_traffic_export",
+    description: `Export captured traffic in various formats for external analysis or documentation. JSON format for scripting and tool import, curl format for replaying requests from the command line, and markdown format for inclusion in pentest reports and bug bounty submissions. Equivalent to Burp's "Save Items" / "Copy as curl command" functionality.`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to export from. Uses default session if omitted." },
+        format: { type: "string", enum: ["json", "curl", "markdown"], description: 'Export format. "json" for programmatic use, "curl" for CLI replay, "markdown" for reports (default: "json").' },
+        filter_url: { type: "string", description: 'Filter exported entries by URL substring (e.g. "/api/" to export only API calls).' },
+        filter_method: { type: "string", description: 'Filter by HTTP method (e.g. "POST" to export only POST requests).' },
+        limit: { type: "number", description: "Maximum entries to export (default: 100)." }
+      },
+      required: []
+    }
+  },
+  // ── Request Manipulation / Burp Repeater + Intruder ──────────────
+  {
+    name: "web_request_send",
+    description: "Send a raw HTTP request outside the browser context \u2014 equivalent to Burp Suite Repeater. Craft requests with full control over method, headers, and body. No browser overhead, no JavaScript execution, no cookie jar \u2014 just a pure HTTP client. Ideal for testing API endpoints directly, sending malformed requests, testing HTTP method override, header injection, and verifying server-side behavior without client-side interference. Supports following redirects and TLS error bypass.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        url: { type: "string", description: "Target URL for the request." },
+        method: { type: "string", description: 'HTTP method (default: "GET"). Use PUT, PATCH, DELETE, OPTIONS, TRACE, etc. to test method-based access controls.' },
+        headers: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: "Request headers as key-value pairs. Set Content-Type, Authorization, custom headers, etc."
+        },
+        body: { type: "string", description: "Request body. Send JSON, XML, form-urlencoded, or raw data." },
+        timeout: { type: "number", description: "Request timeout in milliseconds (default: 30000)." },
+        follow_redirects: { type: "boolean", description: "Follow HTTP redirects (default: true). Disable to inspect redirect responses and Location headers directly." },
+        max_redirects: { type: "number", description: "Maximum number of redirects to follow (default: 10). Prevent infinite redirect loops." },
+        ignore_tls: { type: "boolean", description: "Ignore TLS certificate errors (default: false). Required for self-signed certs, staging environments, and MITM testing." }
+      },
+      required: ["url"]
+    }
+  },
+  {
+    name: "web_request_replay",
+    description: "Replay a previously captured request with optional modifications \u2014 the core Burp Repeater workflow. Grab a request from traffic history by entry_id, then override its URL, method, headers, or body to test variations. Use for parameter tampering, privilege escalation testing (swap auth tokens), IDOR testing (change IDs), and method-based bypass attempts. Remove headers with remove_headers to test for missing authentication or authorization.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session containing the original request. Uses default session if omitted." },
+        entry_id: { type: "number", description: "Traffic entry ID of the request to replay (from web_traffic_search)." },
+        url: { type: "string", description: "Override the original URL. Useful for testing the same request against different endpoints or API versions." },
+        method: { type: "string", description: "Override the HTTP method. Test GET vs POST, PUT vs PATCH, or try OPTIONS/TRACE." },
+        headers: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: "Headers to add or replace in the original request. Original headers not listed here are preserved."
+        },
+        body: { type: "string", description: "Override the request body. Modify parameters, inject payloads, or change data formats." },
+        remove_headers: {
+          type: "array",
+          items: { type: "string" },
+          description: "Header names to remove from the original request. Remove Authorization to test unauthenticated access, remove CSRF tokens, or strip rate-limit identifiers."
+        }
+      },
+      required: ["entry_id"]
+    }
+  },
+  {
+    name: "web_request_fuzz",
+    description: "Fuzz a parameter with a wordlist \u2014 equivalent to Burp Suite Intruder's Sniper mode. Place a FUZZ placeholder in the URL, headers, or body, then supply a wordlist. Each word replaces the placeholder and fires a request. Results include status codes, response sizes, and timing for anomaly detection. Use for directory brute-forcing, parameter discovery, credential stuffing, payload injection testing, and IDOR enumeration. Match/filter by status code to isolate interesting responses.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session for context (cookies, headers). Uses default if omitted. Set to use session auth state." },
+        entry_id: { type: "number", description: "Base request from traffic history. If provided, url/method/headers/body override that request. If omitted, url is required." },
+        url: { type: "string", description: 'Target URL. Place FUZZ where the wordlist should be substituted (e.g. "https://target.com/api/users/FUZZ/profile").' },
+        method: { type: "string", description: 'HTTP method (default: "GET").' },
+        headers: {
+          type: "object",
+          additionalProperties: { type: "string" },
+          description: 'Request headers. FUZZ placeholder can appear in header values too (e.g. {"Authorization": "Bearer FUZZ"}).'
+        },
+        body: { type: "string", description: 'Request body. FUZZ placeholder can appear here for body parameter fuzzing (e.g. {"user_id": "FUZZ"}).' },
+        wordlist: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of values to substitute for FUZZ. Maximum 500 entries per invocation. For larger lists, batch across multiple calls."
+        },
+        placeholder: { type: "string", description: 'Placeholder token to replace (default: "FUZZ"). Change if your payload naturally contains "FUZZ".' },
+        delay: { type: "number", description: "Delay between requests in milliseconds (default: 0). Add delay to avoid rate limiting or reduce target load." },
+        timeout: { type: "number", description: "Per-request timeout in milliseconds (default: 10000)." },
+        match_status: {
+          type: "array",
+          items: { type: "number" },
+          description: "Only include results matching these status codes (e.g. [200, 301, 403]). Filters noise from 404s."
+        },
+        filter_status: {
+          type: "array",
+          items: { type: "number" },
+          description: "Exclude results with these status codes (e.g. [404, 429]). Inverse of match_status."
+        }
+      },
+      required: ["wordlist"]
+    }
+  },
+  {
+    name: "web_intercept_modify",
+    description: "Set up automatic request/response modification rules \u2014 equivalent to Burp Suite's Match and Replace. Rules are applied in-flight to all matching traffic. Add headers (inject auth tokens, CORS headers), remove headers (strip security headers to test impact), rewrite request bodies (parameter tampering at scale), and modify responses (inject XSS payloads, remove CSP headers). Rules persist until removed or session closes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to apply rules to. Uses default session if omitted." },
+        action: { type: "string", enum: ["add", "list", "remove", "clear"], description: 'Rule management action. "add" creates a new rule, "list" shows active rules, "remove" deletes a rule by ID, "clear" removes all rules.' },
+        rule_id: { type: "string", description: 'Rule identifier. Required for "remove" action. Auto-generated on "add" if omitted.' },
+        rule: {
+          type: "object",
+          properties: {
+            url_pattern: { type: "string", description: "URL pattern to match (glob syntax). Only requests matching this pattern are modified." },
+            modify_request_headers: {
+              type: "object",
+              additionalProperties: { type: "string" },
+              description: "Headers to add/replace on matching requests."
+            },
+            remove_request_headers: {
+              type: "array",
+              items: { type: "string" },
+              description: "Header names to remove from matching requests."
+            },
+            modify_request_body: { type: "string", description: "Replace the entire request body on matching requests." },
+            modify_response_headers: {
+              type: "object",
+              additionalProperties: { type: "string" },
+              description: "Headers to add/replace on matching responses. Inject CORS headers, remove CSP, etc."
+            },
+            remove_response_headers: {
+              type: "array",
+              items: { type: "string" },
+              description: 'Header names to remove from matching responses (e.g. ["Content-Security-Policy", "X-Frame-Options"] to enable clickjacking/XSS testing).'
+            }
+          },
+          description: 'Modification rule definition. Required when action is "add".'
+        }
+      },
+      required: ["action"]
+    }
+  },
+  // ── Analysis ─────────────────────────────────────────────────────
+  {
+    name: "web_forms_extract",
+    description: "Extract all HTML forms from the current page with their action URLs, methods, input fields (including hidden fields), and default values. Reveals CSRF tokens in hidden inputs, identifies file upload endpoints, maps multi-step form flows, and discovers API endpoints used by form submissions. Hidden inputs often contain user IDs (IDOR), internal paths, debug flags, and price/quantity values ripe for tampering.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to extract forms from. Uses default session if omitted." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_links_extract",
+    description: "Extract all links (anchor hrefs) from the current page. Discovers internal navigation paths, API endpoints linked in JavaScript, admin panel paths, external service integrations, and forgotten debug/staging links. Builds a site map for further crawling and attack surface analysis. Filter to internal-only or include external links to map third-party integrations and potential SSRF targets.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to extract links from. Uses default session if omitted." },
+        include_external: { type: "boolean", description: "Include links to external domains (default: false). Enable to discover third-party integrations, CDN endpoints, and potential SSRF targets." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_js_extract",
+    description: "Extract all JavaScript sources from the current page \u2014 both external script URLs and inline script contents. JavaScript analysis is one of the highest-value recon activities: scripts contain API endpoints, hardcoded secrets (API keys, tokens), internal service URLs, S3 bucket names, debug flags, WebSocket endpoints, and complete client-side business logic. Look for .map files (source maps) that reconstruct original source code. Inline scripts often contain user-specific data, CSRF tokens, and application configuration.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to extract scripts from. Uses default session if omitted." },
+        include_inline: { type: "boolean", description: "Include inline <script> tag contents (default: true). Inline scripts often contain embedded config, user data, and CSRF tokens." },
+        max_inline_length: { type: "number", description: "Maximum character length for captured inline scripts (default: 10000). Prevents huge inline bundles from flooding output." }
+      },
+      required: []
+    }
+  },
+  {
+    name: "web_storage_dump",
+    description: "Dump all client-side storage: localStorage, sessionStorage, and cookies. Client-side storage frequently contains authentication tokens (JWTs in localStorage is a classic finding), user PII, cached API responses, application state, feature flags, and debug information. JWTs in localStorage are vulnerable to XSS-based theft \u2014 a common bug bounty finding.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "Session to dump storage from. Uses default session if omitted." }
+      },
       required: []
     }
   }
 ];
+
+// src/servers/web-tools/traffic-store.ts
+var TrafficStore = class {
+  entries;
+  counters;
+  maxEntriesPerSession;
+  maxBodySize;
+  constructor(config3 = {}) {
+    this.entries = /* @__PURE__ */ new Map();
+    this.counters = /* @__PURE__ */ new Map();
+    this.maxEntriesPerSession = config3.maxEntriesPerSession ?? 1e3;
+    this.maxBodySize = config3.maxBodySize ?? 1024 * 1024;
+  }
+  // ── Private helpers ────────────────────────────────────────────────────────
+  ensureSession(sessionId) {
+    if (!this.entries.has(sessionId)) {
+      this.entries.set(sessionId, []);
+      this.counters.set(sessionId, 1);
+    }
+    return this.entries.get(sessionId);
+  }
+  truncateBody(body) {
+    if (body === null)
+      return { body: null, truncated: false };
+    if (body.length <= this.maxBodySize)
+      return { body, truncated: false };
+    return { body: body.slice(0, this.maxBodySize), truncated: true };
+  }
+  headersToString(headers) {
+    return Object.entries(headers).map(([k, v]) => `${k}: ${v}`).join("\n");
+  }
+  matchesPattern(text, pattern, regex) {
+    if (regex) {
+      try {
+        return new RegExp(pattern, "i").test(text);
+      } catch {
+        return false;
+      }
+    }
+    return text.toLowerCase().includes(pattern.toLowerCase());
+  }
+  entryMatchesSearch(entry, query) {
+    const { pattern, regex = false, searchIn = "all" } = query;
+    const check2 = (text) => {
+      if (text === null)
+        return false;
+      return this.matchesPattern(text, pattern, regex);
+    };
+    switch (searchIn) {
+      case "url":
+        return check2(entry.url);
+      case "request_headers":
+        return check2(this.headersToString(entry.requestHeaders));
+      case "request_body":
+        return check2(entry.requestBody);
+      case "response_headers":
+        return check2(this.headersToString(entry.responseHeaders));
+      case "response_body":
+        return check2(entry.responseBody);
+      case "all":
+      default: {
+        const reqHeaderStr = this.headersToString(entry.requestHeaders);
+        const resHeaderStr = this.headersToString(entry.responseHeaders);
+        return check2(entry.url) || check2(reqHeaderStr) || check2(entry.requestBody) || check2(resHeaderStr) || check2(entry.responseBody);
+      }
+    }
+  }
+  // ── Public API ─────────────────────────────────────────────────────────────
+  addEntry(sessionId, entry) {
+    const list = this.ensureSession(sessionId);
+    const id = this.counters.get(sessionId);
+    this.counters.set(sessionId, id + 1);
+    const { body: requestBody, truncated: _reqTruncated } = this.truncateBody(entry.requestBody);
+    const { body: responseBody, truncated: responseBodyTruncated } = this.truncateBody(entry.responseBody);
+    const newEntry = {
+      ...entry,
+      id,
+      requestBody,
+      responseBody,
+      responseBodyTruncated: entry.responseBodyTruncated || responseBodyTruncated
+    };
+    list.push(newEntry);
+    while (list.length > this.maxEntriesPerSession) {
+      list.shift();
+    }
+    return id;
+  }
+  getEntry(sessionId, entryId) {
+    const list = this.entries.get(sessionId);
+    if (!list)
+      return void 0;
+    return list.find((e) => e.id === entryId);
+  }
+  search(sessionId, query) {
+    const list = this.entries.get(sessionId);
+    if (!list)
+      return [];
+    let results = list.filter((entry) => {
+      if (query.method && entry.method.toUpperCase() !== query.method.toUpperCase()) {
+        return false;
+      }
+      if (query.statusCode !== void 0 && entry.status !== query.statusCode) {
+        return false;
+      }
+      if (query.mimeType && !entry.mimeType.toLowerCase().includes(query.mimeType.toLowerCase())) {
+        return false;
+      }
+      return this.entryMatchesSearch(entry, query);
+    });
+    if (query.limit !== void 0 && query.limit > 0) {
+      results = results.slice(0, query.limit);
+    }
+    return results;
+  }
+  getSessionEntries(sessionId, filter) {
+    const list = this.entries.get(sessionId);
+    if (!list)
+      return [];
+    let results = list.filter((entry) => {
+      if (filter?.method && entry.method.toUpperCase() !== filter.method.toUpperCase()) {
+        return false;
+      }
+      if (filter?.urlPattern) {
+        try {
+          if (!new RegExp(filter.urlPattern, "i").test(entry.url))
+            return false;
+        } catch {
+          if (!entry.url.toLowerCase().includes(filter.urlPattern.toLowerCase()))
+            return false;
+        }
+      }
+      return true;
+    });
+    if (filter?.limit !== void 0 && filter.limit > 0) {
+      results = results.slice(0, filter.limit);
+    }
+    return results;
+  }
+  clearSession(sessionId) {
+    this.entries.delete(sessionId);
+    this.counters.delete(sessionId);
+  }
+  getStats(sessionId) {
+    const list = this.entries.get(sessionId);
+    if (!list)
+      return { count: 0, totalBodyBytes: 0 };
+    let totalBodyBytes = 0;
+    for (const entry of list) {
+      if (entry.requestBody)
+        totalBodyBytes += entry.requestBody.length;
+      if (entry.responseBody)
+        totalBodyBytes += entry.responseBody.length;
+    }
+    return { count: list.length, totalBodyBytes };
+  }
+  getMaxBodySize() {
+    return this.maxBodySize;
+  }
+};
+
+// src/servers/web-tools/intercept-handler.ts
+function globToRegex(pattern) {
+  let re = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+  re = re.replace(/\*\*/g, "\0DOUBLESTAR\0");
+  re = re.replace(/\*/g, "[^/]*");
+  re = re.replace(/\x00DOUBLESTAR\x00/g, ".*");
+  return new RegExp(`^${re}$`, "i");
+}
+function matchesScope(url2, patterns) {
+  if (patterns.length === 0)
+    return false;
+  for (const pattern of patterns) {
+    try {
+      if (globToRegex(pattern).test(url2))
+        return true;
+    } catch {
+      if (url2.toLowerCase().includes(pattern.toLowerCase()))
+        return true;
+    }
+  }
+  return false;
+}
+function applyRequestModifyRules(rules, url2, method, headers, postData) {
+  let modifiedHeaders = { ...headers };
+  let modifiedBody = postData ?? void 0;
+  for (const rule of rules.values()) {
+    if (!matchesScope(url2, [rule.urlPattern]))
+      continue;
+    if (rule.modifyRequestHeaders) {
+      for (const [key, value] of Object.entries(rule.modifyRequestHeaders)) {
+        modifiedHeaders[key.toLowerCase()] = value;
+      }
+    }
+    if (rule.removeRequestHeaders) {
+      for (const key of rule.removeRequestHeaders) {
+        delete modifiedHeaders[key.toLowerCase()];
+      }
+    }
+    if (rule.modifyRequestBody !== void 0) {
+      modifiedBody = rule.modifyRequestBody;
+    }
+  }
+  const result = {
+    headers: modifiedHeaders
+  };
+  if (modifiedBody !== void 0) {
+    result.postData = modifiedBody;
+  }
+  return result;
+}
+function applyResponseModifyRules(rules, url2, headers) {
+  let modifiedHeaders = { ...headers };
+  for (const rule of rules.values()) {
+    if (!matchesScope(url2, [rule.urlPattern]))
+      continue;
+    if (rule.modifyResponseHeaders) {
+      for (const [key, value] of Object.entries(rule.modifyResponseHeaders)) {
+        modifiedHeaders[key.toLowerCase()] = value;
+      }
+    }
+    if (rule.removeResponseHeaders) {
+      for (const key of rule.removeResponseHeaders) {
+        delete modifiedHeaders[key.toLowerCase()];
+      }
+    }
+  }
+  return modifiedHeaders;
+}
+async function setupInterception(session, trafficStore2, options) {
+  const scope = options?.scope && options.scope.length > 0 ? options.scope : session.scope;
+  const captureBody = options?.captureBody !== false;
+  const maxBodySize = options?.maxBodySize ?? trafficStore2.getMaxBodySize();
+  const handler = async (route, request) => {
+    const startTime = Date.now();
+    const url2 = request.url();
+    const method = request.method();
+    const requestHeaders = request.headers();
+    const postData = request.postData();
+    const resourceType = request.resourceType();
+    const redirectedFrom = request.redirectedFrom()?.url() ?? null;
+    const initiator = requestHeaders["referer"] ?? null;
+    const { headers: modifiedRequestHeaders, postData: modifiedBody } = applyRequestModifyRules(
+      session.modifyRules,
+      url2,
+      method,
+      requestHeaders,
+      postData
+    );
+    try {
+      const fetchOptions = {
+        headers: modifiedRequestHeaders
+      };
+      if (modifiedBody !== void 0) {
+        fetchOptions.postData = modifiedBody;
+      }
+      const response = await route.fetch(fetchOptions);
+      const status = response.status();
+      const responseHeaders = response.headers();
+      const mimeType = responseHeaders["content-type"]?.split(";")[0].trim() ?? "";
+      const modifiedResponseHeaders = applyResponseModifyRules(
+        session.modifyRules,
+        url2,
+        responseHeaders
+      );
+      let responseBody = null;
+      let responseBodyTruncated = false;
+      let responseBuffer = null;
+      try {
+        responseBuffer = await response.body();
+        if (captureBody && responseBuffer) {
+          const text = responseBuffer.toString("utf8");
+          if (text.length > maxBodySize) {
+            responseBody = text.slice(0, maxBodySize);
+            responseBodyTruncated = true;
+          } else {
+            responseBody = text;
+          }
+        }
+      } catch {
+      }
+      const durationMs = Date.now() - startTime;
+      trafficStore2.addEntry(session.id, {
+        sessionId: session.id,
+        timestamp: startTime,
+        url: url2,
+        method,
+        requestHeaders,
+        requestBody: captureBody ? postData ?? null : null,
+        resourceType,
+        status,
+        responseHeaders: modifiedResponseHeaders,
+        responseBody,
+        responseBodyTruncated,
+        mimeType,
+        durationMs,
+        initiator,
+        redirectedFrom
+      });
+      await route.fulfill({
+        status,
+        headers: modifiedResponseHeaders,
+        body: responseBuffer ?? void 0
+      });
+    } catch (err) {
+      const durationMs = Date.now() - startTime;
+      trafficStore2.addEntry(session.id, {
+        sessionId: session.id,
+        timestamp: startTime,
+        url: url2,
+        method,
+        requestHeaders,
+        requestBody: captureBody ? postData ?? null : null,
+        resourceType,
+        status: 0,
+        responseHeaders: {},
+        responseBody: null,
+        responseBodyTruncated: false,
+        mimeType: "",
+        durationMs,
+        initiator,
+        redirectedFrom
+      });
+      await route.abort();
+    }
+  };
+  await session.page.route(
+    (url2) => matchesScope(url2.toString(), scope),
+    handler
+  );
+  session.routeHandler = handler;
+  session.intercepting = true;
+}
+async function removeInterception(session) {
+  if (session.routeHandler) {
+    await session.page.unroute("**/*", session.routeHandler);
+    session.routeHandler = null;
+  }
+  session.intercepting = false;
+}
+
+// src/servers/web-tools/request-client.ts
+var http = __toESM(require("node:http"), 1);
+var https = __toESM(require("node:https"), 1);
+var import_node_url = require("node:url");
+var MAX_BODY_BYTES = 1048576;
+var MAX_WORDLIST = 500;
+var DEFAULT_PLACEHOLDER = "FUZZ";
+var DEFAULT_DELAY = 100;
+var DEFAULT_TIMEOUT = 1e4;
+var STATUS_TEXTS = {
+  100: "Continue",
+  101: "Switching Protocols",
+  200: "OK",
+  201: "Created",
+  202: "Accepted",
+  204: "No Content",
+  206: "Partial Content",
+  301: "Moved Permanently",
+  302: "Found",
+  303: "See Other",
+  304: "Not Modified",
+  307: "Temporary Redirect",
+  308: "Permanent Redirect",
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  408: "Request Timeout",
+  409: "Conflict",
+  410: "Gone",
+  413: "Payload Too Large",
+  422: "Unprocessable Entity",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  501: "Not Implemented",
+  502: "Bad Gateway",
+  503: "Service Unavailable",
+  504: "Gateway Timeout"
+};
+function statusText(code) {
+  return STATUS_TEXTS[code] ?? "Unknown";
+}
+function rawRequest(url2, opts) {
+  return new Promise((resolve, reject) => {
+    let parsed;
+    try {
+      parsed = new import_node_url.URL(url2);
+    } catch {
+      reject(new Error(`Invalid URL: ${url2}`));
+      return;
+    }
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      reject(new Error(`Unsupported protocol: ${parsed.protocol} \u2014 only http/https allowed`));
+      return;
+    }
+    const isHttps = parsed.protocol === "https:";
+    const mod = isHttps ? https : http;
+    const bodyBuf = opts.body ? Buffer.from(opts.body, "utf-8") : null;
+    const finalHeaders = { ...opts.headers };
+    if (bodyBuf && bodyBuf.length > 0 && !finalHeaders["content-length"]) {
+      finalHeaders["content-length"] = String(bodyBuf.length);
+    }
+    const reqOptions = {
+      hostname: parsed.hostname,
+      port: parsed.port ? Number(parsed.port) : isHttps ? 443 : 80,
+      path: parsed.pathname + parsed.search,
+      method: opts.method,
+      headers: finalHeaders,
+      timeout: opts.timeout,
+      ...isHttps ? {
+        rejectUnauthorized: !opts.ignoreTls,
+        agent: new https.Agent({ rejectUnauthorized: !opts.ignoreTls })
+      } : {}
+    };
+    const req = mod.request(reqOptions, (res) => {
+      const chunks = [];
+      let totalSize = 0;
+      let truncated = false;
+      res.on("data", (chunk) => {
+        totalSize += chunk.length;
+        if (totalSize <= MAX_BODY_BYTES) {
+          chunks.push(chunk);
+        } else {
+          truncated = true;
+        }
+      });
+      res.on("end", () => {
+        const responseHeaders = {};
+        for (const [key, value] of Object.entries(res.headers)) {
+          if (value !== void 0) {
+            responseHeaders[key] = Array.isArray(value) ? value.join(", ") : value;
+          }
+        }
+        resolve({
+          status: res.statusCode ?? 0,
+          responseHeaders,
+          rawBody: Buffer.concat(chunks),
+          bodyTruncated: truncated
+        });
+      });
+      res.on("error", (err) => {
+        reject(new Error(`Response stream error for ${url2}: ${err.message}`));
+      });
+    });
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error(`Request timed out after ${opts.timeout}ms: ${url2}`));
+    });
+    req.on("error", (err) => {
+      reject(new Error(`Connection failed to ${url2}: ${err.message}`));
+    });
+    if (bodyBuf && bodyBuf.length > 0) {
+      req.write(bodyBuf);
+    }
+    req.end();
+  });
+}
+async function sendRequest(opts) {
+  const {
+    url: url2,
+    method = "GET",
+    headers = {},
+    body,
+    timeout = DEFAULT_TIMEOUT,
+    followRedirects = true,
+    maxRedirects = 10,
+    ignoreTls = false
+  } = opts;
+  const startMs = Date.now();
+  const redirectChain = [];
+  const requestHeaders = { ...headers };
+  let currentUrl = url2;
+  let redirectsLeft = followRedirects ? maxRedirects : 0;
+  try {
+    new import_node_url.URL(currentUrl);
+  } catch {
+    throw new Error(`Invalid URL: ${currentUrl}`);
+  }
+  let lastResult = null;
+  let finalUrl = currentUrl;
+  while (true) {
+    lastResult = await rawRequest(currentUrl, {
+      method,
+      headers: requestHeaders,
+      body,
+      timeout,
+      ignoreTls
+    });
+    const { status, responseHeaders } = lastResult;
+    const isRedirect = status >= 300 && status < 400 && responseHeaders["location"];
+    if (!isRedirect || redirectsLeft <= 0) {
+      finalUrl = currentUrl;
+      break;
+    }
+    redirectChain.push({ url: currentUrl, status });
+    let nextUrl;
+    try {
+      nextUrl = new import_node_url.URL(responseHeaders["location"], currentUrl).toString();
+    } catch {
+      nextUrl = responseHeaders["location"];
+    }
+    currentUrl = nextUrl;
+    redirectsLeft--;
+  }
+  const durationMs = Date.now() - startMs;
+  const bodyStr = lastResult.rawBody.toString("utf-8");
+  return {
+    url: finalUrl,
+    method: method.toUpperCase(),
+    status: lastResult.status,
+    statusText: statusText(lastResult.status),
+    requestHeaders,
+    responseHeaders: lastResult.responseHeaders,
+    body: bodyStr,
+    bodyTruncated: lastResult.bodyTruncated,
+    contentLength: lastResult.rawBody.length,
+    durationMs,
+    redirectChain
+  };
+}
+async function replayRequest(entry, overrides) {
+  const baseHeaders = { ...entry.requestHeaders };
+  if (overrides?.removeHeaders) {
+    for (const h of overrides.removeHeaders) {
+      const lower = h.toLowerCase();
+      for (const key of Object.keys(baseHeaders)) {
+        if (key.toLowerCase() === lower) {
+          delete baseHeaders[key];
+        }
+      }
+    }
+  }
+  const finalHeaders = {
+    ...baseHeaders,
+    ...overrides?.headers ?? {}
+  };
+  return sendRequest({
+    url: overrides?.url ?? entry.url,
+    method: overrides?.method ?? entry.method,
+    headers: finalHeaders,
+    body: overrides?.body ?? entry.requestBody ?? void 0
+  });
+}
+async function fuzzRequest(opts) {
+  const {
+    wordlist,
+    placeholder = DEFAULT_PLACEHOLDER,
+    delay = DEFAULT_DELAY,
+    timeout = DEFAULT_TIMEOUT,
+    matchStatus,
+    filterStatus
+  } = opts;
+  if (wordlist.length > MAX_WORDLIST) {
+    throw new Error(
+      `Wordlist too large: ${wordlist.length} entries (max ${MAX_WORDLIST}). Trim the wordlist to ${MAX_WORDLIST} entries or fewer.`
+    );
+  }
+  let baseUrl = opts.url ?? "";
+  let baseMethod = opts.method ?? "GET";
+  let baseHeaders = { ...opts.headers ?? {} };
+  let baseBody = opts.body;
+  if (opts.entry) {
+    const e = opts.entry;
+    baseUrl = opts.url ?? e.url;
+    baseMethod = opts.method ?? e.method;
+    baseHeaders = { ...e.requestHeaders, ...opts.headers ?? {} };
+    baseBody = opts.body ?? e.requestBody ?? void 0;
+  }
+  if (!baseUrl) {
+    throw new Error("fuzzRequest requires either opts.url or opts.entry with a URL");
+  }
+  const inject = (template, payload) => template.split(placeholder).join(payload);
+  const results = [];
+  for (let i = 0; i < wordlist.length; i++) {
+    const payload = wordlist[i];
+    const timestamp = (/* @__PURE__ */ new Date()).toISOString();
+    const fuzzedUrl = inject(baseUrl, payload);
+    const fuzzedHeaders = {};
+    for (const [k, v] of Object.entries(baseHeaders)) {
+      fuzzedHeaders[k] = inject(v, payload);
+    }
+    const fuzzedBody = baseBody ? inject(baseBody, payload) : void 0;
+    const startMs = Date.now();
+    let statusCode = 0;
+    let responseLength = 0;
+    let interesting = false;
+    let reason;
+    let matches = false;
+    try {
+      const res = await sendRequest({
+        url: fuzzedUrl,
+        method: baseMethod,
+        headers: fuzzedHeaders,
+        body: fuzzedBody,
+        timeout,
+        followRedirects: false
+      });
+      statusCode = res.status;
+      responseLength = res.contentLength;
+      if (matchStatus && matchStatus.length > 0) {
+        matches = matchStatus.includes(statusCode);
+      } else if (filterStatus && filterStatus.length > 0) {
+        matches = !filterStatus.includes(statusCode);
+      } else {
+        matches = true;
+      }
+    } catch (err) {
+      statusCode = 0;
+      responseLength = 0;
+      matches = false;
+      interesting = false;
+      reason = `Error: ${err.message}`;
+    }
+    const timing = Date.now() - startMs;
+    const entry = {
+      index: i,
+      payload,
+      status: statusCode,
+      contentLength: responseLength,
+      durationMs: timing,
+      ...reason ? { error: reason } : {}
+    };
+    if (filterStatus && filterStatus.length > 0 && filterStatus.includes(statusCode)) {
+    } else if (matchStatus && matchStatus.length > 0 && !matchStatus.includes(statusCode) && statusCode !== 0) {
+    } else {
+      results.push(entry);
+    }
+    if (i < wordlist.length - 1 && delay > 0) {
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  return results;
+}
+
+// src/servers/web-tools/formatter.ts
+var MAX_OUTPUT_CHARS = 5e4;
+function guardOutputSize(text, maxChars) {
+  const limit = maxChars ?? MAX_OUTPUT_CHARS;
+  if (text.length <= limit)
+    return text;
+  const truncated = text.slice(0, limit);
+  const lastNewline = truncated.lastIndexOf("\n");
+  const cleanCut = lastNewline > limit * 0.8 ? truncated.slice(0, lastNewline) : truncated;
+  return cleanCut + `
+
+--- OUTPUT TRUNCATED ---
+Response was ${text.length.toLocaleString()} chars (limit: ${limit.toLocaleString()}).
+Use pagination, filters, or limit parameters to reduce output size.`;
+}
+function formatSessionList(sessions2) {
+  const lines = [];
+  lines.push(`## Sessions (${sessions2.length})`);
+  lines.push("");
+  if (sessions2.length === 0) {
+    lines.push("No sessions found.");
+    lines.push("");
+    return guardOutputSize(lines.join("\n"));
+  }
+  lines.push("| ID | URL | Created | Requests | Intercepting |");
+  lines.push("|----|-----|---------|----------|--------------|");
+  for (const session of sessions2) {
+    const intercepting = session.intercepting ? "Yes" : "No";
+    const created = new Date(session.createdAt).toISOString();
+    lines.push(
+      `| ${session.id} | ${session.url} | ${created} | ${session.capturedRequests} | ${intercepting} |`
+    );
+  }
+  lines.push("");
+  return guardOutputSize(lines.join("\n"));
+}
+function formatTrafficEntry(entry) {
+  const lines = [];
+  lines.push(`## Request Details`);
+  lines.push("");
+  lines.push(`**Timestamp:** ${new Date(entry.timestamp).toISOString()}`);
+  lines.push(`**Method:** ${entry.method}`);
+  lines.push(`**URL:** ${entry.url}`);
+  lines.push("");
+  lines.push("### Response");
+  lines.push(`**Status:** ${entry.status}`);
+  lines.push(`**Content-Type:** ${entry.mimeType || "-"}`);
+  const responseLen = entry.responseBody != null ? entry.responseBody.length : null;
+  lines.push(`**Length:** ${responseLen != null ? responseLen.toLocaleString() + " bytes" : "-"}`);
+  if (entry.durationMs) {
+    lines.push(`**Timing:** ${entry.durationMs}ms`);
+  }
+  lines.push("");
+  lines.push("### Request Headers");
+  lines.push("```");
+  for (const [key, val] of Object.entries(entry.requestHeaders)) {
+    lines.push(`${key}: ${val}`);
+  }
+  lines.push("```");
+  lines.push("");
+  if (entry.requestBody) {
+    lines.push("### Request Body");
+    const bodyPreview = entry.requestBody.length > 500 ? entry.requestBody.slice(0, 500) + "..." : entry.requestBody;
+    lines.push("```");
+    lines.push(bodyPreview);
+    lines.push("```");
+    lines.push("");
+  }
+  if (entry.responseBody) {
+    lines.push("### Response Body");
+    const bodyPreview = entry.responseBody.length > 500 ? entry.responseBody.slice(0, 500) + "..." : entry.responseBody;
+    lines.push("```");
+    lines.push(bodyPreview);
+    lines.push("```");
+    if (entry.responseBodyTruncated) {
+      lines.push("*Response body was truncated.*");
+    }
+    lines.push("");
+  }
+  return guardOutputSize(lines.join("\n"));
+}
+function formatTrafficSearch(entries, pattern) {
+  const lines = [];
+  lines.push(`## Traffic Search Results`);
+  lines.push(`Pattern: \`${pattern}\``);
+  lines.push(`Found: ${entries.length} matches`);
+  lines.push("");
+  if (entries.length === 0) {
+    lines.push("No matching traffic entries found.");
+    lines.push("");
+    return guardOutputSize(lines.join("\n"));
+  }
+  lines.push("| Timestamp | Method | URL | Status | Length | Timing |");
+  lines.push("|-----------|--------|-----|--------|--------|--------|");
+  for (const entry of entries.slice(0, 100)) {
+    const url2 = entry.url.length > 60 ? entry.url.slice(0, 57) + "..." : entry.url;
+    const timing = entry.durationMs ? `${entry.durationMs}ms` : "-";
+    const length = entry.responseBody != null ? entry.responseBody.length.toLocaleString() : "-";
+    const ts = new Date(entry.timestamp).toISOString();
+    lines.push(
+      `| ${ts} | ${entry.method} | ${url2} | ${entry.status} | ${length} | ${timing} |`
+    );
+  }
+  if (entries.length > 100) {
+    lines.push(`| ... | ... | *(${entries.length - 100} more entries)* | ... | ... | ... |`);
+  }
+  lines.push("");
+  return guardOutputSize(lines.join("\n"));
+}
+function formatTrafficExport(entries, format) {
+  if (format === "json") {
+    return guardOutputSize(JSON.stringify(entries, null, 2));
+  }
+  if (format === "curl") {
+    const lines2 = [];
+    lines2.push(`## cURL Commands (${entries.length} requests)`);
+    lines2.push("");
+    for (const entry of entries) {
+      const ts = new Date(entry.timestamp).toISOString();
+      lines2.push(`# ${ts} - ${entry.method} ${entry.url}`);
+      let cmd = `curl -X ${entry.method}`;
+      for (const [key, val] of Object.entries(entry.requestHeaders)) {
+        cmd += ` -H '${key}: ${val}'`;
+      }
+      if (entry.requestBody) {
+        const bodyEscaped = entry.requestBody.replace(/'/g, `'"'"'`);
+        cmd += ` -d '${bodyEscaped}'`;
+      }
+      cmd += ` '${entry.url}'`;
+      lines2.push(cmd);
+      lines2.push("");
+    }
+    return guardOutputSize(lines2.join("\n"));
+  }
+  const lines = [];
+  lines.push(`# Traffic Export`);
+  lines.push(`Generated: ${(/* @__PURE__ */ new Date()).toISOString()}`);
+  lines.push(`Total Requests: ${entries.length}`);
+  lines.push("");
+  for (const entry of entries) {
+    const ts = new Date(entry.timestamp).toISOString();
+    lines.push(`## ${entry.method} ${entry.url}`);
+    lines.push(`**Status:** ${entry.status}`);
+    lines.push(`**Timestamp:** ${ts}`);
+    if (entry.durationMs)
+      lines.push(`**Timing:** ${entry.durationMs}ms`);
+    lines.push("");
+  }
+  return guardOutputSize(lines.join("\n"));
+}
+function formatFuzzResults(results) {
+  const lines = [];
+  lines.push(`## Fuzz Results (${results.length} total)`);
+  lines.push("");
+  if (results.length === 0) {
+    lines.push("No fuzz results.");
+    lines.push("");
+    return guardOutputSize(lines.join("\n"));
+  }
+  const errors = results.filter((r) => r.error != null).length;
+  lines.push(`**Errors:** ${errors} | **Successful:** ${results.length - errors}`);
+  lines.push("");
+  lines.push("| # | Payload | Status | Length | Timing | Error |");
+  lines.push("|---|---------|--------|--------|--------|-------|");
+  for (const result of results.slice(0, 100)) {
+    const payload = result.payload.length > 40 ? result.payload.slice(0, 37) + "..." : result.payload;
+    const timing = `${result.durationMs}ms`;
+    const error2 = result.error || "-";
+    lines.push(
+      `| ${result.index} | ${payload} | ${result.status} | ${result.contentLength.toLocaleString()} | ${timing} | ${error2} |`
+    );
+  }
+  if (results.length > 100) {
+    lines.push(`| ... | ... | ... | ... | ... | *(${results.length - 100} more results)* |`);
+  }
+  lines.push("");
+  return guardOutputSize(lines.join("\n"));
+}
+function formatFormData(forms) {
+  const lines = [];
+  lines.push(`## Extracted Forms (${forms.length})`);
+  lines.push("");
+  if (forms.length === 0) {
+    lines.push("No forms found.");
+    lines.push("");
+    return guardOutputSize(lines.join("\n"));
+  }
+  for (let i = 0; i < forms.length; i++) {
+    const form = forms[i];
+    lines.push(`### Form ${i + 1}`);
+    if (form.id)
+      lines.push(`**ID:** ${form.id}`);
+    if (form.name)
+      lines.push(`**Name:** ${form.name}`);
+    if (form.action)
+      lines.push(`**Action:** ${form.action}`);
+    if (form.method)
+      lines.push(`**Method:** ${form.method}`);
+    lines.push("");
+    if (form.fields && Array.isArray(form.fields)) {
+      lines.push("| Name | Type | Value |");
+      lines.push("|------|------|-------|");
+      for (const field of form.fields) {
+        const value = field.value ? String(field.value).slice(0, 40) : "-";
+        lines.push(`| ${field.name || "-"} | ${field.type || "text"} | ${value} |`);
+      }
+      lines.push("");
+    }
+  }
+  return guardOutputSize(lines.join("\n"));
+}
+function formatLinks(links) {
+  const lines = [];
+  if (!links || typeof links !== "object") {
+    return guardOutputSize("No links data.");
+  }
+  let totalLinks = 0;
+  if (Array.isArray(links)) {
+    lines.push(`## Links (${links.length})`);
+    lines.push("");
+    for (const link of links.slice(0, 200)) {
+      lines.push(`- ${link.href || link}`);
+    }
+    if (links.length > 200) {
+      lines.push(`
+*(${links.length - 200} more links)*`);
+    }
+    return guardOutputSize(lines.join("\n"));
+  }
+  lines.push("## Links by Category");
+  lines.push("");
+  for (const [category, items] of Object.entries(links)) {
+    if (!Array.isArray(items) || items.length === 0)
+      continue;
+    totalLinks += items.length;
+    lines.push(`### ${category} (${items.length})`);
+    for (const item of items.slice(0, 50)) {
+      const href = typeof item === "string" ? item : item.href || item;
+      lines.push(`- ${href}`);
+    }
+    if (items.length > 50) {
+      lines.push(`*(${items.length - 50} more ${category})*`);
+    }
+    lines.push("");
+  }
+  if (totalLinks === 0) {
+    lines.push("No links found.");
+  }
+  return guardOutputSize(lines.join("\n"));
+}
 
 // src/shared/config.ts
 var import_fs = require("fs");
@@ -21224,441 +22104,853 @@ function loadConfig() {
   return config3;
 }
 
-// src/servers/shodan/formatter.ts
-var MAX_OUTPUT_CHARS = 5e4;
-function guardOutputSize(text) {
-  if (text.length <= MAX_OUTPUT_CHARS)
-    return text;
-  const truncated = text.slice(0, MAX_OUTPUT_CHARS);
-  const lastNewline = truncated.lastIndexOf("\n");
-  const cleanCut = lastNewline > MAX_OUTPUT_CHARS * 0.8 ? truncated.slice(0, lastNewline) : truncated;
-  return cleanCut + `
-
---- OUTPUT TRUNCATED ---
-Response was ${text.length.toLocaleString()} chars (limit: ${MAX_OUTPUT_CHARS.toLocaleString()}).
-Use \`limit\`, \`fields\`, \`summary\`, or \`minify\` parameters to reduce output size.`;
-}
-function getNestedValue(obj, path) {
-  const parts = path.split(".");
-  let current = obj;
-  for (const part of parts) {
-    if (current == null)
-      return void 0;
-    current = current[part];
-  }
-  return current;
-}
-function selectFields(data, fields) {
-  const fieldList = fields.split(",").map((f) => f.trim()).filter(Boolean);
-  if (fieldList.length === 0)
-    return data;
-  if (Array.isArray(data)) {
-    return data.map((item) => selectFieldsFromObject(item, fieldList));
-  }
-  return selectFieldsFromObject(data, fieldList);
-}
-function selectFieldsFromObject(obj, fields) {
-  const result = {};
-  for (const field of fields) {
-    const value = getNestedValue(obj, field);
-    if (value !== void 0) {
-      result[field] = value;
-    }
-  }
-  return result;
-}
-function limitResults(data, limit) {
-  if (Array.isArray(data)) {
-    return data.slice(0, limit);
-  }
-  if (data && Array.isArray(data.matches)) {
-    return { ...data, matches: data.matches.slice(0, limit) };
-  }
-  if (data && Array.isArray(data.data)) {
-    return { ...data, data: data.data.slice(0, limit) };
-  }
-  return data;
-}
-function formatFacets(facets) {
-  if (!facets || Object.keys(facets).length === 0)
-    return "";
-  let out = "\n### Facets\n";
-  for (const [name, entries] of Object.entries(facets)) {
-    out += `
-**${name}**
-`;
-    out += "| Value | Count |\n|-------|-------|\n";
-    for (const entry of entries) {
-      out += `| ${entry.value} | ${entry.count.toLocaleString()} |
-`;
-    }
-  }
-  return out;
-}
-function formatHostSummary(host) {
-  const lines = [];
-  lines.push(`## Host: ${host.ip_str}`);
-  lines.push("");
-  const meta3 = [];
-  if (host.org)
-    meta3.push(`**Org:** ${host.org}`);
-  if (host.isp && host.isp !== host.org)
-    meta3.push(`**ISP:** ${host.isp}`);
-  if (host.asn)
-    meta3.push(`**ASN:** ${host.asn}`);
-  if (host.os)
-    meta3.push(`**OS:** ${host.os}`);
-  if (host.country_name)
-    meta3.push(`**Location:** ${host.city || ""}${host.city ? ", " : ""}${host.country_name}`);
-  if (host.hostnames?.length)
-    meta3.push(`**Hostnames:** ${host.hostnames.join(", ")}`);
-  if (host.tags?.length)
-    meta3.push(`**Tags:** ${host.tags.join(", ")}`);
-  if (host.last_update)
-    meta3.push(`**Last updated:** ${host.last_update}`);
-  lines.push(meta3.join(" | "));
-  lines.push("");
-  if (host.data?.length) {
-    lines.push("### Services");
-    lines.push("| Port | Proto | Product | Version | Banner |");
-    lines.push("|------|-------|---------|---------|--------|");
-    for (const svc of host.data) {
-      const banner = (svc.banner || "").replace(/\n/g, " ").slice(0, 80);
-      lines.push(
-        `| ${svc.port} | ${svc.transport} | ${svc.product || "-"} | ${svc.version || "-"} | ${banner || "-"} |`
-      );
-    }
-    lines.push("");
-  } else {
-    lines.push(`**Ports:** ${host.ports?.join(", ") || "none"}`);
-    lines.push("");
-  }
-  if (host.vulns?.length) {
-    lines.push(`### Vulnerabilities (${host.vulns.length})`);
-    lines.push(host.vulns.join(", "));
-    lines.push("");
-  }
-  return lines.join("\n");
-}
-function formatSearchSummary(result) {
-  const lines = [];
-  lines.push(`## Search Results (${result.total.toLocaleString()} total)`);
-  lines.push("");
-  if (result.matches?.length) {
-    lines.push(`Showing ${result.matches.length} of ${result.total.toLocaleString()} results:`);
-    lines.push("");
-    lines.push("| IP | Port | Org | Product | Title/Banner |");
-    lines.push("|----|------|-----|---------|-------------|");
-    for (const m of result.matches) {
-      const title = m.http?.title || (m.banner || "").replace(/\n/g, " ").slice(0, 60) || "-";
-      lines.push(
-        `| ${m.ip_str || "-"} | ${m.port} | ${m.org || "-"} | ${m.product || "-"} | ${title} |`
-      );
-    }
-    lines.push("");
-  }
-  lines.push(formatFacets(result.facets));
-  return lines.join("\n");
-}
-function formatCountSummary(result) {
-  const lines = [];
-  lines.push(`## Count: ${result.total.toLocaleString()} results`);
-  lines.push(formatFacets(result.facets));
-  return lines.join("\n");
-}
-function formatInternetDbSummary(result) {
-  const lines = [];
-  lines.push(`## InternetDB: ${result.ip}`);
-  lines.push("");
-  if (result.hostnames?.length)
-    lines.push(`**Hostnames:** ${result.hostnames.join(", ")}`);
-  if (result.ports?.length)
-    lines.push(`**Ports:** ${result.ports.join(", ")}`);
-  if (result.tags?.length)
-    lines.push(`**Tags:** ${result.tags.join(", ")}`);
-  if (result.cpes?.length) {
-    lines.push("");
-    lines.push("### CPEs");
-    for (const cpe of result.cpes)
-      lines.push(`- ${cpe}`);
-  }
-  if (result.vulns?.length) {
-    lines.push("");
-    lines.push(`### Vulnerabilities (${result.vulns.length})`);
-    lines.push(result.vulns.join(", "));
-  }
-  if (!result.ports?.length && !result.vulns?.length && !result.hostnames?.length) {
-    lines.push("*No data available for this IP in InternetDB.*");
-  }
-  lines.push("");
-  return lines.join("\n");
-}
-function formatDnsDomainSummary(result) {
-  const lines = [];
-  lines.push(`## DNS: ${result.domain}`);
-  lines.push("");
-  if (result.tags?.length)
-    lines.push(`**Tags:** ${result.tags.join(", ")}`);
-  if (result.subdomains?.length) {
-    lines.push(`**Subdomains found:** ${result.subdomains.length}${result.more ? "+" : ""}`);
-    lines.push("");
-    lines.push("### Subdomains");
-    for (const sub of result.subdomains) {
-      lines.push(`- ${sub}.${result.domain}`);
-    }
-    lines.push("");
-  }
-  if (result.data?.length) {
-    lines.push("### DNS Records");
-    lines.push("| Subdomain | Type | Value |");
-    lines.push("|-----------|------|-------|");
-    for (const rec of result.data.slice(0, 100)) {
-      const sub = rec.subdomain || "@";
-      lines.push(`| ${sub} | ${rec.type} | ${rec.value} |`);
-    }
-    if (result.data.length > 100) {
-      lines.push(`| ... | ... | *(${result.data.length - 100} more records)* |`);
-    }
-    lines.push("");
-  }
-  if (result.more)
-    lines.push("*More results available \u2014 use `page` parameter.*");
-  return lines.join("\n");
-}
-function formatExploitsSummary(result) {
-  const lines = [];
-  lines.push(`## Exploits (${result.total.toLocaleString()} total)`);
-  lines.push("");
-  if (result.matches?.length) {
-    lines.push(`Showing ${result.matches.length} results:`);
-    lines.push("");
-    lines.push("| Source | Type | Platform | CVEs | Description |");
-    lines.push("|--------|------|----------|------|-------------|");
-    for (const e of result.matches) {
-      const desc = (e.description || "").replace(/\n/g, " ").slice(0, 80);
-      const cves = e.cve?.join(", ") || "-";
-      lines.push(
-        `| ${e.source || "-"} | ${e.type || "-"} | ${e.platform || "-"} | ${cves} | ${desc || "-"} |`
-      );
-    }
-    lines.push("");
-  }
-  lines.push(formatFacets(result.facets));
-  return lines.join("\n");
-}
-function formatApiInfoSummary(info) {
-  const lines = [];
-  lines.push("## Shodan API Info");
-  lines.push("");
-  lines.push(`| Property | Value |`);
-  lines.push(`|----------|-------|`);
-  lines.push(`| Plan | ${info.plan} |`);
-  lines.push(`| Query Credits | ${info.query_credits} / ${info.usage_limits?.query_credits ?? "?"} |`);
-  lines.push(`| Scan Credits | ${info.scan_credits} / ${info.usage_limits?.scan_credits ?? "?"} |`);
-  lines.push(`| Monitored IPs | ${info.monitored_ips} / ${info.usage_limits?.monitored_ips ?? "?"} |`);
-  lines.push(`| HTTPS | ${info.https} |`);
-  lines.push(`| Unlocked | ${info.unlocked} (${info.unlocked_left} left) |`);
-  lines.push("");
-  return lines.join("\n");
-}
-function formatOutput(data, options) {
-  let result = data;
-  if (options.limit != null) {
-    result = limitResults(result, options.limit);
-  }
-  if (options.summary && options.summaryFormatter) {
-    const text2 = options.summaryFormatter(result);
-    return guardOutputSize(text2);
-  }
-  if (options.fields) {
-    if (result && Array.isArray(result.matches)) {
-      result = { ...result, matches: selectFields(result.matches, options.fields) };
-    } else if (result && Array.isArray(result.data)) {
-      result = { ...result, data: selectFields(result.data, options.fields) };
-    } else {
-      result = selectFields(result, options.fields);
-    }
-  }
-  const text = JSON.stringify(result, null, 2);
-  return guardOutputSize(text);
-}
-
-// src/servers/shodan/index.ts
+// src/servers/web-tools/index.ts
 var config2 = loadConfig();
-var apiKey = config2.shodan.apiKey;
-var client = apiKey ? new ShodanClient(apiKey) : null;
+var WEB_CONFIG = {
+  headless: true,
+  maxSessions: 10,
+  maxTrafficEntries: 1e3,
+  maxBodySize: 1024 * 1024,
+  // 1 MB
+  defaultScope: ["**"],
+  ...config2.webTools ?? {}
+};
+var trafficStore = new TrafficStore({
+  maxEntriesPerSession: WEB_CONFIG.maxTrafficEntries,
+  maxBodySize: WEB_CONFIG.maxBodySize
+});
+var sessions = /* @__PURE__ */ new Map();
+var browser = null;
+var DEFAULT_SESSION_ID = "default";
+async function ensureBrowser() {
+  if (browser && browser.isConnected())
+    return browser;
+  browser = await import_playwright_core.chromium.launch({
+    headless: WEB_CONFIG.headless,
+    ...WEB_CONFIG.chromiumPath ? { executablePath: WEB_CONFIG.chromiumPath } : {}
+  });
+  return browser;
+}
+function resolveSessionId(raw) {
+  return raw && raw.trim().length > 0 ? raw.trim() : DEFAULT_SESSION_ID;
+}
+function getSession(sessionId) {
+  const s = sessions.get(sessionId);
+  if (!s)
+    throw new Error(`Session "${sessionId}" not found. Create it first with web_session_create.`);
+  return s;
+}
+async function createSession(sessionId, opts = {}) {
+  if (sessions.size >= WEB_CONFIG.maxSessions) {
+    throw new Error(
+      `Maximum session limit (${WEB_CONFIG.maxSessions}) reached. Close a session first.`
+    );
+  }
+  if (sessions.has(sessionId)) {
+    throw new Error(`Session "${sessionId}" already exists.`);
+  }
+  const b = await ensureBrowser();
+  const contextOptions = {
+    ignoreHTTPSErrors: opts.ignoreHttpsErrors ?? false
+  };
+  if (opts.userAgent || WEB_CONFIG.defaultUserAgent) {
+    contextOptions.userAgent = opts.userAgent ?? WEB_CONFIG.defaultUserAgent;
+  }
+  if (opts.viewport || WEB_CONFIG.defaultViewport) {
+    contextOptions.viewport = opts.viewport ?? WEB_CONFIG.defaultViewport ?? null;
+  }
+  if (opts.extraHeaders) {
+    contextOptions.extraHTTPHeaders = opts.extraHeaders;
+  }
+  if (opts.proxy) {
+    contextOptions.proxy = {
+      server: opts.proxy.server,
+      ...opts.proxy.username ? { username: opts.proxy.username } : {},
+      ...opts.proxy.password ? { password: opts.proxy.password } : {}
+    };
+  }
+  const context = await b.newContext(contextOptions);
+  const page = await context.newPage();
+  const session = {
+    id: sessionId,
+    context,
+    page,
+    createdAt: Date.now(),
+    options: opts,
+    intercepting: false,
+    scope: opts.scope ?? WEB_CONFIG.defaultScope,
+    modifyRules: /* @__PURE__ */ new Map(),
+    routeHandler: null
+  };
+  sessions.set(sessionId, session);
+  if (opts.intercept) {
+    await setupInterception(session, trafficStore);
+  }
+  return session;
+}
+async function getOrCreateSession(rawId) {
+  const id = resolveSessionId(rawId);
+  if (sessions.has(id))
+    return sessions.get(id);
+  return createSession(id);
+}
+async function closeSession(sessionId) {
+  const closed = [];
+  if (sessionId === "all") {
+    for (const [id, session] of sessions) {
+      try {
+        await session.context.close();
+      } catch {
+      }
+      trafficStore.clearSession(id);
+      closed.push(id);
+    }
+    sessions.clear();
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+      }
+      browser = null;
+    }
+  } else {
+    const session = sessions.get(sessionId);
+    if (!session)
+      throw new Error(`Session "${sessionId}" not found.`);
+    try {
+      await session.context.close();
+    } catch {
+    }
+    trafficStore.clearSession(sessionId);
+    sessions.delete(sessionId);
+    closed.push(sessionId);
+  }
+  return closed;
+}
+function sessionInfo(session) {
+  const stats = trafficStore.getStats(session.id);
+  return {
+    id: session.id,
+    url: session.page.url(),
+    title: "",
+    // filled asynchronously below
+    intercepting: session.intercepting,
+    capturedRequests: stats.count,
+    createdAt: session.createdAt,
+    options: session.options
+  };
+}
+async function sessionInfoAsync(session) {
+  const info = sessionInfo(session);
+  try {
+    info.title = await session.page.title();
+  } catch {
+    info.title = "";
+  }
+  return info;
+}
+async function shutdown() {
+  for (const [id, session] of sessions) {
+    try {
+      await session.context.close();
+    } catch {
+    }
+    trafficStore.clearSession(id);
+  }
+  sessions.clear();
+  if (browser) {
+    try {
+      await browser.close();
+    } catch {
+    }
+    browser = null;
+  }
+}
 var server = new Server(
-  { name: "greyhatcc-shodan", version: "2.0.0" },
+  { name: "greyhatcc-web-tools", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: SHODAN_TOOLS
+  tools: WEB_TOOLS
 }));
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
-  const needsKey = name !== "shodan_internetdb";
-  if (needsKey && !client) {
-    return {
-      content: [{ type: "text", text: "ERROR: SHODAN_API_KEY not configured. Set it via environment variable or in .greyhatcc/config.json" }],
-      isError: true
-    };
-  }
-  const c = client || new ShodanClient("");
   try {
-    let output;
     switch (name) {
-      case "shodan_host_lookup": {
-        const result = await c.hostLookup(args.ip, {
-          history: args.history,
-          minify: args.minify
-        });
-        output = formatOutput(result, {
-          fields: args.fields,
-          summary: args.summary,
-          summaryFormatter: formatHostSummary
-        });
-        break;
-      }
-      case "shodan_search": {
-        const limit = Math.min(Math.max(args.limit || 5, 1), 100);
-        const result = await c.search(args.query, {
-          facets: args.facets,
-          page: args.page,
-          minify: args.minify
-        });
-        output = formatOutput(result, {
-          limit,
-          fields: args.fields,
-          summary: args.summary,
-          summaryFormatter: formatSearchSummary
-        });
-        break;
-      }
-      case "shodan_count": {
-        const result = await c.count(args.query, args.facets);
-        output = formatOutput(result, {
-          summary: true,
-          // Always summarize counts — they're small
-          summaryFormatter: formatCountSummary
-        });
-        break;
-      }
-      case "shodan_search_tokens": {
-        const result = await c.searchTokens(args.query);
-        output = guardOutputSize(JSON.stringify(result, null, 2));
-        break;
-      }
-      case "shodan_internetdb": {
-        const result = await c.internetDb(args.ip);
-        output = formatOutput(result, {
-          summary: args.summary,
-          summaryFormatter: formatInternetDbSummary
-        });
-        break;
-      }
-      case "shodan_dns_resolve": {
-        const result = await c.dnsResolve(args.hostnames);
-        output = guardOutputSize(JSON.stringify(result, null, 2));
-        break;
-      }
-      case "shodan_dns_reverse": {
-        const result = await c.dnsReverse(args.ips);
-        output = guardOutputSize(JSON.stringify(result, null, 2));
-        break;
-      }
-      case "shodan_dns_domain": {
-        const result = await c.dnsDomain(args.domain, {
-          history: args.history,
-          type: args.type,
-          page: args.page
-        });
-        output = formatOutput(result, {
-          summary: args.summary,
-          summaryFormatter: formatDnsDomainSummary
-        });
-        break;
-      }
-      case "shodan_exploits_search": {
-        const limit = Math.min(Math.max(args.limit || 10, 1), 100);
-        const result = await c.exploitsSearch(args.query, {
-          type: args.type,
-          facets: args.facets,
-          page: args.page
-        });
-        output = formatOutput(result, {
-          limit,
-          fields: void 0,
-          summary: args.summary,
-          summaryFormatter: formatExploitsSummary
-        });
-        break;
-      }
-      case "shodan_ports": {
-        const result = await c.ports(args.ip);
-        if (args.summary) {
-          output = `## Ports for ${args.ip} (source: ${result.source})
-
-${result.ports.join(", ") || "No open ports found"}`;
-        } else {
-          output = guardOutputSize(JSON.stringify(result, null, 2));
+      case "web_session_create": {
+        const sessionId = args.session_id || (0, import_node_crypto.randomUUID)().slice(0, 8);
+        const opts = {};
+        if (args.headless !== void 0)
+          opts.headless = args.headless;
+        if (args.user_agent)
+          opts.userAgent = args.user_agent;
+        if (args.viewport)
+          opts.viewport = args.viewport;
+        if (args.extra_headers)
+          opts.extraHeaders = args.extra_headers;
+        if (args.proxy)
+          opts.proxy = args.proxy;
+        if (args.scope)
+          opts.scope = args.scope;
+        if (args.intercept !== void 0)
+          opts.intercept = args.intercept;
+        if (args.ignore_https_errors !== void 0)
+          opts.ignoreHttpsErrors = args.ignore_https_errors;
+        if (opts.headless !== void 0) {
         }
-        break;
+        const session = await createSession(sessionId, opts);
+        const info = await sessionInfoAsync(session);
+        const result = guardOutputSize(JSON.stringify(info, null, 2));
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_vulns": {
-        const result = await c.vulns(args.ip);
-        if (args.summary) {
-          output = `## Vulnerabilities for ${args.ip} (source: ${result.source})
-
-${result.vulns.length} CVEs: ${result.vulns.join(", ") || "None found"}`;
-        } else {
-          output = guardOutputSize(JSON.stringify(result, null, 2));
+      case "web_session_list": {
+        const infos = [];
+        for (const session of sessions.values()) {
+          infos.push(await sessionInfoAsync(session));
         }
-        break;
+        const result = formatSessionList(infos);
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_ssl_cert": {
-        const limit = Math.min(Math.max(args.limit || 5, 1), 100);
-        const result = await c.sslCert(args.hostname);
-        output = formatOutput(result, {
-          limit,
-          fields: args.fields,
-          summary: args.summary,
-          summaryFormatter: formatSearchSummary
+      case "web_session_close": {
+        const closed = await closeSession(args.session_id);
+        const result = guardOutputSize(
+          JSON.stringify({ closed, remaining: sessions.size }, null, 2)
+        );
+        return { content: [{ type: "text", text: result }] };
+      }
+      case "web_session_cookies": {
+        const sid = resolveSessionId(args.session_id);
+        const session = getSession(sid);
+        if (args.clear) {
+          await session.context.clearCookies();
+        }
+        if (args.cookies && Array.isArray(args.cookies)) {
+          const cookiesToSet = args.cookies.map((c) => ({
+            name: c.name,
+            value: c.value,
+            domain: c.domain,
+            path: c.path ?? "/",
+            httpOnly: c.httpOnly,
+            secure: c.secure,
+            sameSite: c.sameSite,
+            expires: c.expires,
+            url: c.domain ? void 0 : session.page.url()
+          }));
+          await session.context.addCookies(cookiesToSet);
+          const result2 = guardOutputSize(
+            JSON.stringify({ set: cookiesToSet.length, session_id: sid }, null, 2)
+          );
+          return { content: [{ type: "text", text: result2 }] };
+        }
+        const url2 = args.url;
+        const cookies = url2 ? await session.context.cookies(url2) : await session.context.cookies();
+        const result = guardOutputSize(JSON.stringify(cookies, null, 2));
+        return { content: [{ type: "text", text: result }] };
+      }
+      case "web_navigate": {
+        const session = await getOrCreateSession(args.session_id);
+        const url2 = args.url;
+        const waitUntil = args.wait_until ?? "load";
+        const timeout = args.timeout ?? 3e4;
+        const response = await session.page.goto(url2, { waitUntil, timeout });
+        const result = {
+          session_id: session.id,
+          url: session.page.url(),
+          title: await session.page.title(),
+          status: response?.status() ?? 0,
+          headers: response?.headers() ?? {}
+        };
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(result, null, 2)) }]
+        };
+      }
+      case "web_screenshot": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const fullPage = args.full_page ?? false;
+        const selector = args.selector;
+        const quality = args.quality;
+        let screenshotBuffer;
+        if (selector) {
+          const element = await session.page.locator(selector).first();
+          screenshotBuffer = await element.screenshot({
+            type: quality !== void 0 ? "jpeg" : "png",
+            ...quality !== void 0 ? { quality } : {}
+          });
+        } else {
+          screenshotBuffer = await session.page.screenshot({
+            fullPage,
+            type: quality !== void 0 ? "jpeg" : "png",
+            ...quality !== void 0 ? { quality } : {}
+          });
+        }
+        const base643 = screenshotBuffer.toString("base64");
+        const mimeType = quality !== void 0 ? "image/jpeg" : "image/png";
+        return {
+          content: [{ type: "image", data: base643, mimeType }]
+        };
+      }
+      case "web_snapshot": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const selector = args.selector;
+        const includeHidden = args.include_hidden ?? false;
+        let root;
+        if (selector) {
+          const element = await session.page.locator(selector).first();
+          root = await element.evaluate(`(el) => {
+            function walk(node) {
+              var role = node.getAttribute('role') || node.tagName.toLowerCase();
+              var name =
+                node.getAttribute('aria-label') ||
+                node.getAttribute('alt') ||
+                node.getAttribute('title') ||
+                node.placeholder ||
+                (node.textContent || '').trim().slice(0, 100) ||
+                '';
+              var children = [];
+              for (var i = 0; i < node.children.length; i++) {
+                children.push(walk(node.children[i]));
+              }
+              var result = { role: role, name: name.slice(0, 100) };
+              if (children.length > 0) result.children = children;
+              return result;
+            }
+            return walk(el);
+          }`);
+        } else {
+          root = await session.page.evaluate(`(() => {
+            function walk(el) {
+              const role = el.getAttribute('role') || el.tagName.toLowerCase();
+              const name = el.getAttribute('aria-label') || el.innerText?.slice(0, 80) || '';
+              const children = Array.from(el.children).map(walk).filter(Boolean);
+              const result = { role, name: name.trim() };
+              if (children.length > 0) result.children = children;
+              return result;
+            }
+            return walk(document.body);
+          })()`);
+        }
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(root, null, 2)) }]
+        };
+      }
+      case "web_click": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const selector = args.selector;
+        const button = args.button ?? "left";
+        const clickCount = args.click_count ?? 1;
+        const timeout = args.timeout ?? 3e4;
+        await session.page.click(selector, { button, clickCount, timeout });
+        const result = {
+          clicked: selector,
+          button,
+          clickCount,
+          url: session.page.url(),
+          title: await session.page.title()
+        };
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(result, null, 2)) }]
+        };
+      }
+      case "web_fill": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const selector = args.selector;
+        const value = args.value;
+        const timeout = args.timeout ?? 3e4;
+        await session.page.fill(selector, value, { timeout });
+        const result = {
+          filled: selector,
+          value_length: value.length
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+      case "web_evaluate": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const expression = args.expression;
+        const evalResult = await session.page.evaluate(expression);
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(evalResult, null, 2)) }]
+        };
+      }
+      case "web_wait": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const selector = args.selector;
+        const state = args.state;
+        const networkIdle = args.network_idle;
+        const timeout = args.timeout ?? 3e4;
+        if (networkIdle) {
+          await session.page.waitForLoadState("networkidle", { timeout });
+        } else if (selector) {
+          await session.page.waitForSelector(selector, {
+            state: state ?? "visible",
+            timeout
+          });
+        } else {
+          throw new Error("Provide either a selector or network_idle=true.");
+        }
+        const result = {
+          waited: networkIdle ? "network_idle" : `selector "${selector}" state=${state ?? "visible"}`,
+          url: session.page.url()
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+      case "web_intercept_enable": {
+        const sid = resolveSessionId(args.session_id);
+        const session = getSession(sid);
+        if (session.intercepting) {
+          return {
+            content: [{ type: "text", text: JSON.stringify({ already_intercepting: true, session_id: sid }, null, 2) }]
+          };
+        }
+        const interceptOpts = {};
+        if (args.scope)
+          interceptOpts.scope = args.scope;
+        if (args.capture_body !== void 0)
+          interceptOpts.captureBody = args.capture_body;
+        if (args.max_body_size !== void 0)
+          interceptOpts.maxBodySize = args.max_body_size;
+        await setupInterception(session, trafficStore, interceptOpts);
+        const result = {
+          session_id: sid,
+          intercepting: true,
+          scope: interceptOpts.scope ?? session.scope
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+      case "web_intercept_disable": {
+        const sid = resolveSessionId(args.session_id);
+        const session = getSession(sid);
+        await removeInterception(session);
+        const stats = trafficStore.getStats(sid);
+        const result = {
+          session_id: sid,
+          intercepting: false,
+          captured_entries: stats.count
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+        };
+      }
+      case "web_traffic_search": {
+        const sid = resolveSessionId(args.session_id);
+        const pattern = args.pattern;
+        const entries = trafficStore.search(sid, {
+          pattern,
+          regex: args.regex,
+          searchIn: args.in,
+          method: args.method,
+          statusCode: args.status_code,
+          mimeType: args.mime_type,
+          limit: args.limit ?? 50
         });
-        break;
+        const result = formatTrafficSearch(entries, pattern);
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_scan": {
-        const result = await c.scan(args.ips);
-        output = guardOutputSize(JSON.stringify(result, null, 2));
-        break;
+      case "web_traffic_get": {
+        const sid = resolveSessionId(args.session_id);
+        const entryId = args.entry_id;
+        const entry = trafficStore.getEntry(sid, entryId);
+        if (!entry) {
+          throw new Error(`Traffic entry #${entryId} not found in session "${sid}".`);
+        }
+        const result = formatTrafficEntry(entry);
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_scan_status": {
-        const result = await c.scanStatus(args.id);
-        output = guardOutputSize(JSON.stringify(result, null, 2));
-        break;
+      case "web_traffic_export": {
+        const sid = resolveSessionId(args.session_id);
+        const format = args.format ?? "json";
+        const filterUrl = args.filter_url;
+        const filterMethod = args.filter_method;
+        const limit = args.limit ?? 100;
+        const entries = trafficStore.getSessionEntries(sid, {
+          urlPattern: filterUrl,
+          method: filterMethod,
+          limit
+        });
+        const result = formatTrafficExport(entries, format);
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_honeypot_check": {
-        const score = await c.honeypotCheck(args.ip);
-        output = JSON.stringify({ ip: args.ip, honeypot_score: score, is_honeypot: score > 0.5 }, null, 2);
-        break;
+      case "web_request_send": {
+        const result = await sendRequest({
+          url: args.url,
+          method: args.method,
+          headers: args.headers,
+          body: args.body,
+          timeout: args.timeout,
+          followRedirects: args.follow_redirects,
+          maxRedirects: args.max_redirects,
+          ignoreTls: args.ignore_tls
+        });
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(result, null, 2)) }]
+        };
       }
-      case "shodan_api_info": {
-        const result = await c.apiInfo();
-        output = formatApiInfoSummary(result);
-        break;
+      case "web_request_replay": {
+        const sid = resolveSessionId(args.session_id);
+        const entryId = args.entry_id;
+        const entry = trafficStore.getEntry(sid, entryId);
+        if (!entry) {
+          throw new Error(`Traffic entry #${entryId} not found in session "${sid}".`);
+        }
+        const result = await replayRequest(entry, {
+          url: args.url,
+          method: args.method,
+          headers: args.headers,
+          body: args.body,
+          removeHeaders: args.remove_headers
+        });
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(result, null, 2)) }]
+        };
       }
-      case "shodan_search_facets": {
-        const result = await c.searchFacets();
-        output = `## Available Shodan Search Facets
-
-${result.join(", ")}`;
-        break;
+      case "web_request_fuzz": {
+        const wordlist = args.wordlist;
+        if (!wordlist || wordlist.length === 0) {
+          throw new Error("wordlist is required and must not be empty.");
+        }
+        let baseEntry = void 0;
+        if (args.entry_id !== void 0) {
+          const sid = resolveSessionId(args.session_id);
+          baseEntry = trafficStore.getEntry(sid, args.entry_id);
+          if (!baseEntry) {
+            throw new Error(`Traffic entry #${args.entry_id} not found in session "${sid}".`);
+          }
+        }
+        const results = await fuzzRequest({
+          url: args.url,
+          method: args.method,
+          headers: args.headers,
+          body: args.body,
+          entry: baseEntry,
+          wordlist,
+          placeholder: args.placeholder,
+          delay: args.delay,
+          timeout: args.timeout,
+          matchStatus: args.match_status,
+          filterStatus: args.filter_status
+        });
+        const result = formatFuzzResults(results);
+        return { content: [{ type: "text", text: result }] };
       }
-      case "shodan_search_filters": {
-        const result = await c.searchFilters();
-        output = `## Available Shodan Search Filters
-
-${result.join(", ")}`;
-        break;
+      case "web_intercept_modify": {
+        const sid = resolveSessionId(args.session_id);
+        const session = getSession(sid);
+        const action = args.action;
+        switch (action) {
+          case "add": {
+            const ruleInput = args.rule;
+            if (!ruleInput || !ruleInput.url_pattern) {
+              throw new Error('rule with url_pattern is required for "add" action.');
+            }
+            const ruleId = args.rule_id || `rule-${(0, import_node_crypto.randomUUID)().slice(0, 6)}`;
+            const rule = {
+              id: ruleId,
+              urlPattern: ruleInput.url_pattern,
+              modifyRequestHeaders: ruleInput.modify_request_headers,
+              removeRequestHeaders: ruleInput.remove_request_headers,
+              modifyRequestBody: ruleInput.modify_request_body,
+              modifyResponseHeaders: ruleInput.modify_response_headers,
+              removeResponseHeaders: ruleInput.remove_response_headers
+            };
+            session.modifyRules.set(ruleId, rule);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({ action: "added", rule_id: ruleId, rule }, null, 2)
+              }]
+            };
+          }
+          case "list": {
+            const rules = [];
+            for (const rule of session.modifyRules.values()) {
+              rules.push(rule);
+            }
+            return {
+              content: [{
+                type: "text",
+                text: guardOutputSize(JSON.stringify({ session_id: sid, rules, count: rules.length }, null, 2))
+              }]
+            };
+          }
+          case "remove": {
+            const ruleId = args.rule_id;
+            if (!ruleId)
+              throw new Error('rule_id is required for "remove" action.');
+            const existed = session.modifyRules.delete(ruleId);
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({ action: "removed", rule_id: ruleId, existed }, null, 2)
+              }]
+            };
+          }
+          case "clear": {
+            const count = session.modifyRules.size;
+            session.modifyRules.clear();
+            return {
+              content: [{
+                type: "text",
+                text: JSON.stringify({ action: "cleared", removed: count, session_id: sid }, null, 2)
+              }]
+            };
+          }
+          default:
+            throw new Error(`Unknown intercept_modify action: "${action}". Use add, list, remove, or clear.`);
+        }
+      }
+      case "web_forms_extract": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const forms = await session.page.evaluate(`(() => {
+          var formElements = document.querySelectorAll('form');
+          var results = [];
+          formElements.forEach(function(form, formIndex) {
+            var fields = [];
+            var inputs = form.querySelectorAll('input, select, textarea, button');
+            inputs.forEach(function(el) {
+              var fieldInfo = {
+                tag: el.tagName.toLowerCase(),
+                name: el.getAttribute('name') || '',
+                type: el.getAttribute('type') || (el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : 'text'),
+                value: el.value || el.getAttribute('value') || '',
+                required: el.hasAttribute('required'),
+                disabled: el.hasAttribute('disabled'),
+              };
+              if (el.getAttribute('id')) fieldInfo.id = el.getAttribute('id');
+              if (el.getAttribute('placeholder')) fieldInfo.placeholder = el.getAttribute('placeholder');
+              if (el.getAttribute('pattern')) fieldInfo.pattern = el.getAttribute('pattern');
+              if (el.getAttribute('maxlength')) fieldInfo.maxlength = el.getAttribute('maxlength');
+              if (el.getAttribute('autocomplete')) fieldInfo.autocomplete = el.getAttribute('autocomplete');
+              if (fieldInfo.type === 'hidden') fieldInfo._hidden = true;
+              if (el.tagName === 'SELECT') {
+                var options = [];
+                el.querySelectorAll('option').forEach(function(opt) {
+                  options.push(opt.value + '=' + (opt.textContent || '').trim());
+                });
+                fieldInfo.options = options;
+              }
+              fields.push(fieldInfo);
+            });
+            results.push({
+              index: formIndex,
+              id: form.getAttribute('id') || null,
+              name: form.getAttribute('name') || null,
+              action: form.getAttribute('action') || null,
+              method: (form.getAttribute('method') || 'GET').toUpperCase(),
+              enctype: form.getAttribute('enctype') || 'application/x-www-form-urlencoded',
+              target: form.getAttribute('target') || null,
+              novalidate: form.hasAttribute('novalidate'),
+              fields: fields,
+              hiddenFieldCount: fields.filter(function(f) { return f._hidden; }).length,
+              totalFields: fields.length,
+            });
+          });
+          return results;
+        })()`);
+        const result = formatFormData(forms);
+        return { content: [{ type: "text", text: result }] };
+      }
+      case "web_links_extract": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const includeExternal = args.include_external ?? false;
+        const linksScript = `((includeExt) => {
+          var pageHost = new URL(window.location.href).hostname;
+          function isExternal(href) {
+            try { return new URL(href, window.location.href).hostname !== pageHost; }
+            catch(e) { return false; }
+          }
+          function resolveHref(href) {
+            try { return new URL(href, window.location.href).href; }
+            catch(e) { return href; }
+          }
+          var anchors = [];
+          document.querySelectorAll('a[href]').forEach(function(el) {
+            var href = el.getAttribute('href') || '';
+            if (href.startsWith('javascript:') || href === '#' || href === '') return;
+            var resolved = resolveHref(href);
+            var external = isExternal(href);
+            if (!includeExt && external) return;
+            anchors.push({ href: resolved, text: (el.textContent || '').trim().slice(0, 100), external: external });
+          });
+          var formActions = [];
+          document.querySelectorAll('form[action]').forEach(function(el) {
+            var action = el.getAttribute('action') || '';
+            if (!action) return;
+            formActions.push({ href: resolveHref(action), method: (el.getAttribute('method') || 'GET').toUpperCase() });
+          });
+          var scriptSrcs = [];
+          document.querySelectorAll('script[src]').forEach(function(el) {
+            var src = el.getAttribute('src');
+            if (src) scriptSrcs.push(resolveHref(src));
+          });
+          var stylesheets = [];
+          document.querySelectorAll('link[href]').forEach(function(el) {
+            var href = el.getAttribute('href');
+            if (href) stylesheets.push(resolveHref(href));
+          });
+          var iframes = [];
+          document.querySelectorAll('iframe[src]').forEach(function(el) {
+            var src = el.getAttribute('src');
+            if (src) iframes.push(resolveHref(src));
+          });
+          return {
+            anchors: anchors, form_actions: formActions, script_sources: scriptSrcs,
+            stylesheets: stylesheets, iframes: iframes,
+            summary: {
+              total_anchors: anchors.length,
+              internal: anchors.filter(function(a) { return !a.external; }).length,
+              external: anchors.filter(function(a) { return a.external; }).length,
+              forms: formActions.length, scripts: scriptSrcs.length,
+              stylesheets: stylesheets.length, iframes: iframes.length,
+            },
+          };
+        })(${JSON.stringify(includeExternal)})`;
+        const links = await session.page.evaluate(linksScript);
+        const result = formatLinks(links);
+        return { content: [{ type: "text", text: result }] };
+      }
+      case "web_js_extract": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const includeInline = args.include_inline ?? true;
+        const maxInlineLength = args.max_inline_length ?? 1e4;
+        const jsScript = `((opts) => {
+          var externalScripts = [];
+          var inlineScripts = [];
+          document.querySelectorAll('script').forEach(function(el, index) {
+            var src = el.getAttribute('src');
+            if (src) {
+              var resolvedSrc;
+              try { resolvedSrc = new URL(src, window.location.href).href; }
+              catch(e) { resolvedSrc = src; }
+              var info = {
+                index: index, src: resolvedSrc,
+                type: el.getAttribute('type') || 'text/javascript',
+                async: el.hasAttribute('async'), defer: el.hasAttribute('defer'),
+                crossorigin: el.getAttribute('crossorigin') || null,
+                integrity: el.getAttribute('integrity') || null,
+              };
+              if (resolvedSrc.endsWith('.js')) info.potential_sourcemap = resolvedSrc + '.map';
+              externalScripts.push(info);
+            } else if (opts.includeInline) {
+              var content = el.textContent || '';
+              if (content.trim().length === 0) return;
+              var truncated = content.length > opts.maxInlineLength;
+              inlineScripts.push({
+                index: index,
+                type: el.getAttribute('type') || 'text/javascript',
+                length: content.length,
+                content: truncated ? content.slice(0, opts.maxInlineLength) : content,
+                truncated: truncated,
+                hints: {
+                  has_api_key: /api[_\\-]?key|apikey|api_secret/i.test(content),
+                  has_token: /token|bearer|jwt|auth/i.test(content),
+                  has_url: /https?:\\/\\/[^\\s"']+/i.test(content),
+                  has_endpoint: /\\/api\\/|\\/v[0-9]+\\//i.test(content),
+                  has_s3: /s3[.\\-]|\\.amazonaws\\.com/i.test(content),
+                  has_config: /__config__|window\\.\\w+\\s*=\\s*\\{/i.test(content),
+                },
+              });
+            }
+          });
+          return {
+            external: externalScripts, inline: inlineScripts,
+            summary: {
+              external_count: externalScripts.length,
+              inline_count: inlineScripts.length,
+              total_inline_bytes: inlineScripts.reduce(function(sum, s) { return sum + s.length; }, 0),
+            },
+          };
+        })(${JSON.stringify({ includeInline, maxInlineLength })})`;
+        const scripts = await session.page.evaluate(jsScript);
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(scripts, null, 2)) }]
+        };
+      }
+      case "web_storage_dump": {
+        const sid = resolveSessionId(args.session_id);
+        const session = await getOrCreateSession(sid);
+        const storage = await session.page.evaluate(`(() => {
+          var localStorageData = {};
+          try {
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (key) localStorageData[key] = localStorage.getItem(key) || '';
+            }
+          } catch(e) {}
+          var sessionStorageData = {};
+          try {
+            for (var i = 0; i < sessionStorage.length; i++) {
+              var key = sessionStorage.key(i);
+              if (key) sessionStorageData[key] = sessionStorage.getItem(key) || '';
+            }
+          } catch(e) {}
+          var cookies = document.cookie;
+          var cookieParsed = {};
+          if (cookies) {
+            cookies.split(';').forEach(function(pair) {
+              var parts = pair.trim().split('=');
+              var name = parts.shift();
+              if (name) cookieParsed[name.trim()] = parts.join('=');
+            });
+          }
+          function analyzeValue(value) {
+            var flags = [];
+            if (/^eyJ[A-Za-z0-9_-]+\\.eyJ/.test(value)) flags.push('JWT');
+            if (/^[0-9a-f]{32,}$/i.test(value)) flags.push('hex_token');
+            if (/bearer\\s+/i.test(value)) flags.push('bearer_token');
+            if (/"password"|"passwd"|"secret"/i.test(value)) flags.push('possible_credential');
+            try {
+              var trimmed = value.trim();
+              if (/^\\{.*\\}$/.test(trimmed) || /^\\[.*\\]$/.test(trimmed)) flags.push('json_data');
+            } catch(e) {}
+            return flags;
+          }
+          var analysis = {};
+          var entries, k, v, fl;
+          entries = Object.entries(localStorageData);
+          for (var i = 0; i < entries.length; i++) {
+            k = entries[i][0]; v = entries[i][1]; fl = analyzeValue(v);
+            if (fl.length > 0) analysis['localStorage.' + k] = fl;
+          }
+          entries = Object.entries(sessionStorageData);
+          for (var i = 0; i < entries.length; i++) {
+            k = entries[i][0]; v = entries[i][1]; fl = analyzeValue(v);
+            if (fl.length > 0) analysis['sessionStorage.' + k] = fl;
+          }
+          entries = Object.entries(cookieParsed);
+          for (var i = 0; i < entries.length; i++) {
+            k = entries[i][0]; v = entries[i][1]; fl = analyzeValue(v);
+            if (fl.length > 0) analysis['cookie.' + k] = fl;
+          }
+          return {
+            localStorage: { entries: localStorageData, count: Object.keys(localStorageData).length },
+            sessionStorage: { entries: sessionStorageData, count: Object.keys(sessionStorageData).length },
+            cookies: { raw: cookies, parsed: cookieParsed, count: Object.keys(cookieParsed).length },
+            analysis: Object.keys(analysis).length > 0 ? analysis : null,
+            summary: {
+              localStorage_keys: Object.keys(localStorageData).length,
+              sessionStorage_keys: Object.keys(sessionStorageData).length,
+              cookie_count: Object.keys(cookieParsed).length,
+              interesting_findings: Object.keys(analysis).length,
+            },
+          };
+        })()`);
+        return {
+          content: [{ type: "text", text: guardOutputSize(JSON.stringify(storage, null, 2)) }]
+        };
       }
       default:
         return {
@@ -21666,14 +22958,27 @@ ${result.join(", ")}`;
           isError: true
         };
     }
-    return {
-      content: [{ type: "text", text: output }]
-    };
   } catch (error2) {
     return {
-      content: [{ type: "text", text: `Shodan error: ${error2.message}` }],
+      content: [{ type: "text", text: `Error: ${error2.message}` }],
       isError: true
     };
+  }
+});
+process.on("SIGTERM", () => {
+  shutdown().catch(() => {
+  });
+});
+process.on("SIGINT", () => {
+  shutdown().catch(() => {
+  });
+});
+process.on("exit", () => {
+  for (const session of sessions.values()) {
+    try {
+      session.context.close();
+    } catch {
+    }
   }
 });
 async function main() {
@@ -21681,4 +22986,4 @@ async function main() {
   await server.connect(transport);
 }
 main().catch(console.error);
-//# sourceMappingURL=shodan-server.cjs.map
+//# sourceMappingURL=web-tools-server.cjs.map
