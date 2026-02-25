@@ -18,6 +18,10 @@ Usage:
 - `/greyhatcc:tested gaps` - Show untested endpoints and vuln classes
 - `/greyhatcc:tested check /api/users sqli` - Check if already tested
 
+When an active hunt exists (`hunt-state/`), coverage data is read from and written to
+`hunt-state/coverage.json` in structured JSON format. Otherwise falls back to the
+legacy `bug_bounty/<program>/tested.json` format.
+
 Tracks testing coverage to ensure no endpoint or vulnerability class is missed:
 
 **Coverage Matrix:**

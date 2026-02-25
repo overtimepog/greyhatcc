@@ -13,6 +13,9 @@ skill: greyhatcc:scope-management
 
 Invoke the `greyhatcc:scope-management` skill with: {{ARGUMENTS}}
 
+When an active hunt exists (`hunt-state/`), scope is read from `hunt-state/hunt.json`
+(the `scope` field of HuntState). Otherwise falls back to `.greyhatcc/scope.json`.
+
 Manages the target scope for the current engagement, ensuring all testing stays within
 authorized boundaries:
 

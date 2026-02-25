@@ -20,6 +20,10 @@ Usage:
 - `/greyhatcc:gadgets chain` - Analyze all gadgets for chaining
 - `/greyhatcc:gadgets check "new finding"` - Check chain potential
 
+When an active hunt exists (`hunt-state/`), gadgets are read from and written to
+`hunt-state/gadgets.json` in structured JSON format. Otherwise falls back to the
+legacy `bug_bounty/<program>/gadgets.json` format.
+
 The gadget inventory is the core of vulnerability chaining methodology:
 
 **Gadget Structure:**

@@ -19,6 +19,10 @@ Usage:
 - `/greyhatcc:findings list` - List all findings
 - `/greyhatcc:findings update F-001` - Update finding status
 
+When an active hunt exists (`hunt-state/`), findings are read from and written to
+`hunt-state/findings.json` in structured JSON format. Otherwise falls back to the
+legacy `bug_bounty/<program>/findings_log.md` format.
+
 Central repository for all discovered vulnerabilities throughout an engagement:
 
 **Finding Lifecycle:**
