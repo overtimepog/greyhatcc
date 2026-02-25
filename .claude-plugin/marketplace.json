@@ -9,7 +9,7 @@
     {
       "name": "greyhatcc",
       "description": "Autonomous offensive security toolkit for Claude Code with 33 skills, 20 agents, 28 commands, 3 MCP servers (Shodan 17 tools, security-tools 16 tools, HackerOne API), and 8 hooks for credential guarding, scope validation, and finding tracking. Covers the full offensive security lifecycle: persistent hunt loops, recon, exploitation, CORS/WAF/tech analysis, port scanning, subdomain enum, vulnerability chaining, reporting, CVE research, OSINT, and bug bounty workflows.",
-      "version": "6.0.0",
+      "version": "6.1.0",
       "author": {
         "name": "overtimedev"
       },
