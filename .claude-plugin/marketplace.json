@@ -8,8 +8,8 @@
   "plugins": [
     {
       "name": "greyhatcc",
-      "description": "Autonomous offensive security toolkit for Claude Code with 33 skills, 8 agents, 32 commands, 4 MCP servers (71 tools: Shodan 18, Security Tools 14, HackerOne 15, Web Tools 24), and 13 hook scripts across 10 event types. Features an event-driven priority-queue hunt engine with continuous intelligence feedback, dynamic model routing (haiku/sonnet/opus), signal amplification, gadget chaining, 5-gate validation, and persistent state. Covers the full offensive security lifecycle: autonomous hunting, recon, exploitation, vulnerability chaining, reporting, CVE research, OSINT, and bug bounty workflows.",
-      "version": "7.0.0",
+      "description": "Autonomous offensive security toolkit for Claude Code with 33 skills, 31 narrow agents, 32 commands, 4 MCP servers (71 tools: Shodan 18, Security Tools 14, HackerOne 15, Web Tools 24), 11 policy files, 7 stage controllers, and 15 hook scripts across 10 event types. Features a staged pipeline with thin dispatcher, narrow single-mission workers, centralized policy, compaction-resilient handoff artifacts, dynamic model routing (haiku/sonnet/opus), signal amplification, gadget chaining, 5-gate validation, and persistent state. Covers the full offensive security lifecycle: autonomous hunting, recon, exploitation, vulnerability chaining, reporting, CVE research, OSINT, and bug bounty workflows.",
+      "version": "8.0.0",
       "author": {
         "name": "overtimedev"
       },
