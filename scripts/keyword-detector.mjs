@@ -2,28 +2,25 @@ import { readStdin } from './lib/stdin.mjs';
 import { getHuntState, getActiveProgram } from './lib/state.mjs';
 
 /**
- * Enhanced Keyword Detector v3.0
+ * Enhanced Keyword Detector v4.0
  *
- * v3.0 changes:
- * - Unified hunt/loop/siege into single HUNT mode with MAGIC KEYWORD auto-activation
- * - "hunt:" prefix triggers immediate skill invocation (like OMC autopilot)
- * - All hunt-related keywords route to unified greyhatcc:hunt skill
- * - 120+ keywords across 25 categories
- * - Compound keyword detection (multi-word intent matching)
- * - Priority-based matching (most specific wins)
- * - Context-aware suggestions (knows active hunt state)
- * - Auto-invocation hints for clear intent
- * - Negative matching (don't suggest X when Y is better)
- * - Hunt loop awareness (don't interrupt active loops)
+ * v4.0 changes:
+ * - MAGIC KEYWORD support for both hunt AND program research
+ * - Broader keyword patterns for program research (URLs, handles, natural language)
+ * - All commands now have explicit `skill:` frontmatter bindings
+ * - 140+ keywords across 27 categories
+ * - Improved compound keyword detection
+ * - Better URL pattern matching for HackerOne/Bugcrowd/Intigriti
+ * - h1-report command added
  */
 
 // MAGIC KEYWORD: Creates forced skill invocation (like OMC autopilot)
-function createMagicKeyword(originalPrompt) {
-  return `[MAGIC KEYWORD: HUNT]
+function createMagicKeyword(skillName, label, originalPrompt) {
+  return `[MAGIC KEYWORD: ${label}]
 
 You MUST invoke the skill using the Skill tool:
 
-Skill: greyhatcc:hunt
+Skill: greyhatcc:${skillName}
 
 User request:
 ${originalPrompt}
@@ -34,74 +31,87 @@ IMPORTANT: Invoke the skill IMMEDIATELY. Do not proceed without loading the skil
 // Priority: higher = matched first. Most specific patterns first.
 const SKILL_PATTERNS = [
   // --- HUNT MODE (highest priority, unified from hunt+loop+siege) ---
-  { p: 100, match: /^hunt:/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
-  { p: 100, match: /(?:hunt.*loop|keep.*hunting|don'?t.*stop|boulder|persistent.*hunt)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
-  { p: 100, match: /(?:siege|siege.*mode|full.*auto|autonomous.*hunt|take.*over|go.*wild|full.*send.*auto)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
-  { p: 95, match: /(?:full.*send|go.*ham|send.*it|unleash|all.*out)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
+  { p: 100, match: /^hunt:/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate Ultra hunt mode' },
+  { p: 100, match: /(?:hunt\s+(?:mode|loop)|keep\s*hunting|don'?t\s*stop|persistent\s*hunt)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate Ultra hunt mode' },
+  { p: 100, match: /(?:siege|siege\s*mode|full\s*auto|autonomous\s*hunt|take\s*over|go\s*wild)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate Ultra hunt mode' },
+  { p: 95, match: /(?:full\s*send|go\s*ham|send\s*it|unleash|all\s*out)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate Ultra hunt mode' },
+  { p: 95, match: /(?:hunt\s+\S|start\s+hunt|begin\s+hunt|launch\s+hunt)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate Ultra hunt mode' },
+
+  // --- PROGRAM RESEARCH (MAGIC KEYWORD for URLs and clear intent) ---
+  { p: 92, match: /^program:/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Auto-activate program research' },
+  { p: 92, match: /hackerone\.com\/[a-z0-9_-]+/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Research this HackerOne program' },
+  { p: 92, match: /bugcrowd\.com\/[a-z0-9_-]+/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Research this Bugcrowd program' },
+  { p: 92, match: /intigriti\.com\/[a-z0-9_-]+/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Research this Intigriti program' },
+  { p: 90, match: /(?:research\s+(?:the\s+)?program|program\s+research|look\s*up\s+(?:the\s+)?program)/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Auto-activate program research' },
+  { p: 90, match: /(?:new\s+program|start\s+(?:a\s+)?(?:new\s+)?program|set\s*up\s+program)/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Auto-activate program research' },
+  { p: 88, match: /(?:get\s+(?:the\s+)?(?:program|scope|bounty)\s+(?:info|details|guidelines|rules))/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Extract program details' },
+  { p: 88, match: /(?:what(?:'s|\s+is)\s+(?:the\s+)?scope|what\s+bugs?\s+(?:are|is)\s+(?:allowed|excluded|in.scope|out.of.scope))/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Extract program scope and rules' },
+  { p: 88, match: /(?:what(?:'s|\s+is)\s+(?:the\s+)?(?:bounty|payout|reward)|how\s+much\s+(?:do\s+they|does\s+it)\s+pay)/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Extract bounty table' },
+  { p: 86, match: /(?:program\s+(?:info|details|scope|rules|guidelines|exclusions|bounties|bounty\s+table))/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Extract program details' },
+  { p: 85, match: /(?:research|look\s*up|check\s+out|investigate|scrape|extract)\s+(?:the\s+)?(?:h1|hackerone|bugcrowd|intigriti)/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Research bug bounty platform program' },
+  { p: 84, match: /(?:what\s+(?:are|is)\s+(?:the\s+)?(?:exclusions?|excluded|non.qualifying|out.of.scope))/i, skill: '__MAGIC_PROGRAM__', hint: 'MAGIC KEYWORD: Extract exclusion list' },
 
   // --- VALIDATION / QUALITY GATES ---
-  { p: 90, match: /(?:validate.*report|check.*report|report.*quality|review.*report|is.*report.*good)/i, skill: 'greyhatcc:validate', hint: 'Multi-gate report quality validation' },
-  { p: 90, match: /(?:verify.*proof|test.*poc|check.*poc|proof.*work|reproduce|repro.*step)/i, skill: 'greyhatcc:proof', hint: 'Verify PoC reproducibility before submitting' },
-  { p: 90, match: /(?:check.*dup|is.*this.*dup|already.*reported|someone.*found|been.*submitted)/i, skill: 'greyhatcc:dedup', hint: 'Check for duplicates across 6 layers + hacktivity' },
-  { p: 88, match: /(?:hacktivity|disclosed.*report|public.*report|h1.*report.*check|what.*been.*found)/i, skill: 'greyhatcc:hacktivity', hint: 'Scrape HackerOne hacktivity for duplicate patterns' },
-  { p: 85, match: /(?:common.*dupe|always.*rejected|waste.*time|will.*this.*be.*rejected)/i, skill: 'greyhatcc:dupes', hint: 'Check against database of commonly rejected finding types' },
+  { p: 82, match: /(?:validate\s*report|check\s*report|report\s*quality|review\s*report|is\s*report\s*good)/i, skill: 'greyhatcc:validate', hint: 'Multi-gate report quality validation' },
+  { p: 82, match: /(?:verify\s*proof|test\s*poc|check\s*poc|proof\s*work|reproduce|repro\s*step)/i, skill: 'greyhatcc:proof', hint: 'Verify PoC reproducibility before submitting' },
+  { p: 82, match: /(?:check\s*dup|is\s*this\s*(?:a\s*)?dup|already\s*reported|someone\s*found|been\s*submitted)/i, skill: 'greyhatcc:dedup', hint: 'Check for duplicates across 6 layers + hacktivity' },
+  { p: 80, match: /(?:hacktivity|disclosed\s*report|public\s*report|h1\s*report\s*check|what\s*(?:has\s*)?been\s*found)/i, skill: 'greyhatcc:hacktivity', hint: 'Scrape HackerOne hacktivity for duplicate patterns' },
+  { p: 78, match: /(?:common\s*dupe|always\s*rejected|waste\s*time|will\s*this\s*be\s*rejected)/i, skill: 'greyhatcc:dupes', hint: 'Check against database of commonly rejected finding types' },
 
-  // --- PROGRAM RESEARCH ---
-  { p: 80, match: /(?:new.*program|start.*program|research.*program|program.*info|program.*scope)/i, skill: 'greyhatcc:program', hint: 'Automated program research via Playwright + Perplexity' },
-  { p: 80, match: /(?:hackerone\.com\/\w|bugcrowd\.com\/\w|intigriti\.com\/\w)/i, skill: 'greyhatcc:program', hint: 'Research this bug bounty program' },
-  { p: 78, match: /(?:what.*scope|show.*scope|in.*scope|out.*scope|scope.*check)/i, skill: 'greyhatcc:scope', hint: 'View or validate target scope' },
+  // --- SCOPE ---
+  { p: 76, match: /(?:show\s*scope|view\s*scope|scope\s*check|in\s*scope|out\s*(?:of\s*)?scope|define\s*scope|set\s*scope)/i, skill: 'greyhatcc:scope', hint: 'View or validate target scope' },
 
   // --- RECON ---
-  { p: 75, match: /(?:recon|reconn|reconnaissance|enumerate.*target|map.*attack.*surface)/i, skill: 'greyhatcc:recon', hint: 'Multi-phase recon with parallel agents' },
-  { p: 73, match: /(?:subdomain|sub.*domain|subfinder|sublist3r|amass.*enum)/i, skill: 'greyhatcc:subdomains', hint: 'Multi-source subdomain enumeration' },
-  { p: 73, match: /(?:takeover|dangling.*(?:dns|cname)|unclaimed|orphan.*sub)/i, skill: 'greyhatcc:takeover', hint: 'Subdomain takeover detection + verification' },
-  { p: 72, match: /(?:port.*scan|nmap|masscan|service.*enum|open.*port)/i, skill: 'greyhatcc:portscan', hint: 'Intelligent port scanning with service detection' },
-  { p: 71, match: /(?:shodan|censys|internet.*scan|banner.*grab)/i, skill: 'greyhatcc:shodan', hint: 'Shodan-powered infrastructure intelligence' },
-  { p: 70, match: /(?:osint|open.*source.*intel|employee|linkedin|company.*info|theharv)/i, skill: 'greyhatcc:osint', hint: 'OSINT gathering: employees, tech stack, company intel' },
-  { p: 70, match: /(?:javascript.*analy|js.*bundle|webpack|source.*map|\.js.*secret|js.*endpoint)/i, skill: 'greyhatcc:js', hint: 'JavaScript bundle analysis for endpoints, secrets, source maps' },
-  { p: 70, match: /(?:cloud.*(?:recon|bucket|misconfig|storage)|s3.*bucket|gcp.*storage|azure.*blob)/i, skill: 'greyhatcc:cloud', hint: 'Cloud infrastructure misconfiguration hunting' },
-  { p: 68, match: /(?:fingerprint|tech.*stack|wappalyzer|what.*running|identify.*tech)/i, skill: 'greyhatcc:recon', hint: 'Technology fingerprinting' },
-  { p: 68, match: /(?:waf.*detect|waf.*bypass|cloudflare|akamai|aws.*waf|firewall)/i, skill: 'greyhatcc:recon', hint: 'WAF detection and bypass' },
+  { p: 75, match: /(?:recon|reconn|reconnaissance|enumerate\s*target|map\s*(?:the\s*)?attack\s*surface)/i, skill: 'greyhatcc:recon', hint: 'Multi-phase recon with parallel agents' },
+  { p: 73, match: /(?:subdomain|sub\s*domain|subfinder|sublist3r|amass\s*enum)/i, skill: 'greyhatcc:subdomains', hint: 'Multi-source subdomain enumeration' },
+  { p: 73, match: /(?:takeover|dangling\s*(?:dns|cname)|unclaimed|orphan\s*sub)/i, skill: 'greyhatcc:takeover', hint: 'Subdomain takeover detection + verification' },
+  { p: 72, match: /(?:port\s*scan|nmap|masscan|service\s*enum|open\s*port)/i, skill: 'greyhatcc:portscan', hint: 'Intelligent port scanning with service detection' },
+  { p: 71, match: /(?:shodan|censys|internet\s*scan|banner\s*grab)/i, skill: 'greyhatcc:shodan', hint: 'Shodan-powered infrastructure intelligence' },
+  { p: 70, match: /(?:osint|open\s*source\s*intel|employee|linkedin|company\s*info|theharv)/i, skill: 'greyhatcc:osint', hint: 'OSINT gathering: employees, tech stack, company intel' },
+  { p: 70, match: /(?:javascript\s*analy|js\s*bundle|webpack|source\s*map|\.js\s*secret|js\s*endpoint)/i, skill: 'greyhatcc:js', hint: 'JavaScript bundle analysis for endpoints, secrets, source maps' },
+  { p: 70, match: /(?:cloud\s*(?:recon|bucket|misconfig|storage)|s3\s*bucket|gcp\s*storage|azure\s*blob|firebase)/i, skill: 'greyhatcc:cloud', hint: 'Cloud infrastructure misconfiguration hunting' },
+  { p: 68, match: /(?:fingerprint|tech\s*stack|wappalyzer|what(?:'s|\s+is)\s*running|identify\s*tech)/i, skill: 'greyhatcc:recon', hint: 'Technology fingerprinting' },
+  { p: 68, match: /(?:waf\s*detect|waf\s*bypass|cloudflare|akamai|aws\s*waf|firewall)/i, skill: 'greyhatcc:recon', hint: 'WAF detection and bypass' },
 
   // --- VULNERABILITY TESTING ---
-  { p: 65, match: /(?:webapp.*test|owasp|web.*app.*security|penetration.*test.*web)/i, skill: 'greyhatcc:webapp', hint: 'OWASP Top 10 systematic testing' },
-  { p: 65, match: /(?:api.*test|api.*security|rest.*api|graphql.*test|endpoint.*test)/i, skill: 'greyhatcc:api', hint: 'REST/GraphQL API security testing' },
-  { p: 65, match: /(?:oauth|jwt|oidc|saml|cognito|auth0|token.*test|auth.*bypass|sso)/i, skill: 'greyhatcc:auth', hint: 'OAuth, JWT, OIDC, SAML, Cognito testing' },
-  { p: 63, match: /(?:xss|cross.*site.*script|stored.*xss|reflected.*xss|dom.*xss)/i, skill: 'greyhatcc:webapp', hint: 'XSS testing (part of webapp testing workflow)' },
-  { p: 63, match: /(?:sqli|sql.*inject|union.*select|blind.*sql|error.*based)/i, skill: 'greyhatcc:webapp', hint: 'SQL injection testing' },
-  { p: 63, match: /(?:ssrf|server.*side.*request|internal.*fetch|metadata.*169)/i, skill: 'greyhatcc:webapp', hint: 'SSRF testing' },
-  { p: 63, match: /(?:idor|insecure.*direct|broken.*access|horizontal.*priv|vertical.*priv)/i, skill: 'greyhatcc:webapp', hint: 'Access control / IDOR testing' },
-  { p: 63, match: /(?:race.*condition|toctou|concurren|double.*spend|limit.*overrun)/i, skill: 'greyhatcc:webapp', hint: 'Race condition testing' },
+  { p: 65, match: /(?:webapp\s*test|owasp|web\s*app\s*security|penetration\s*test\s*web)/i, skill: 'greyhatcc:webapp', hint: 'OWASP Top 10 systematic testing' },
+  { p: 65, match: /(?:api\s*test|api\s*security|rest\s*api|graphql\s*test|endpoint\s*test)/i, skill: 'greyhatcc:api', hint: 'REST/GraphQL API security testing' },
+  { p: 65, match: /(?:oauth|jwt|oidc|saml|cognito|auth0|token\s*test|auth\s*bypass|sso)/i, skill: 'greyhatcc:auth', hint: 'OAuth, JWT, OIDC, SAML, Cognito testing' },
+  { p: 63, match: /(?:xss|cross\s*site\s*script|stored\s*xss|reflected\s*xss|dom\s*xss)/i, skill: 'greyhatcc:webapp', hint: 'XSS testing (part of webapp testing workflow)' },
+  { p: 63, match: /(?:sqli|sql\s*inject|union\s*select|blind\s*sql|error\s*based)/i, skill: 'greyhatcc:webapp', hint: 'SQL injection testing' },
+  { p: 63, match: /(?:ssrf|server\s*side\s*request|internal\s*fetch|metadata\s*169)/i, skill: 'greyhatcc:webapp', hint: 'SSRF testing' },
+  { p: 63, match: /(?:idor|insecure\s*direct|broken\s*access|horizontal\s*priv|vertical\s*priv)/i, skill: 'greyhatcc:webapp', hint: 'Access control / IDOR testing' },
+  { p: 63, match: /(?:race\s*condition|toctou|concurren|double\s*spend|limit\s*overrun)/i, skill: 'greyhatcc:webapp', hint: 'Race condition testing' },
   { p: 63, match: /(?:deseriali|ysoserial|unserialize|marshal|readObject)/i, skill: 'greyhatcc:webapp', hint: 'Deserialization testing' },
-  { p: 63, match: /(?:ssti|template.*inject|jinja|twig|freemarker|pebble)/i, skill: 'greyhatcc:webapp', hint: 'Server-side template injection' },
-  { p: 63, match: /(?:request.*smuggl|cl\.te|te\.cl|h2\.cl|desync|http.*smuggl)/i, skill: 'greyhatcc:webapp', hint: 'HTTP request smuggling' },
-  { p: 63, match: /(?:prototype.*pollut|__proto__|constructor.*prototype)/i, skill: 'greyhatcc:webapp', hint: 'Prototype pollution testing' },
-  { p: 63, match: /(?:cors|cross.*origin|access-control-allow)/i, skill: 'greyhatcc:webapp', hint: 'CORS misconfiguration testing' },
-  { p: 63, match: /(?:csrf|cross.*site.*request.*forg)/i, skill: 'greyhatcc:webapp', hint: 'CSRF testing' },
-  { p: 63, match: /(?:lfi|rfi|local.*file.*inclus|remote.*file.*inclus|path.*travers|directory.*travers)/i, skill: 'greyhatcc:webapp', hint: 'File inclusion / path traversal' },
-  { p: 63, match: /(?:xxe|xml.*external|xml.*entity|xml.*inject)/i, skill: 'greyhatcc:webapp', hint: 'XXE testing' },
-  { p: 63, match: /(?:open.*redirect|url.*redirect|redirect.*manipul)/i, skill: 'greyhatcc:webapp', hint: 'Open redirect (chain with OAuth for token theft)' },
-  { p: 63, match: /(?:graphql.*introspect|graphql.*batch|graphql.*alias|graphql.*mutation)/i, skill: 'greyhatcc:api', hint: 'GraphQL-specific exploitation' },
+  { p: 63, match: /(?:ssti|template\s*inject|jinja|twig|freemarker|pebble)/i, skill: 'greyhatcc:webapp', hint: 'Server-side template injection' },
+  { p: 63, match: /(?:request\s*smuggl|cl\.te|te\.cl|h2\.cl|desync|http\s*smuggl)/i, skill: 'greyhatcc:webapp', hint: 'HTTP request smuggling' },
+  { p: 63, match: /(?:prototype\s*pollut|__proto__|constructor\s*prototype)/i, skill: 'greyhatcc:webapp', hint: 'Prototype pollution testing' },
+  { p: 63, match: /(?:cors|cross\s*origin|access-control-allow)/i, skill: 'greyhatcc:webapp', hint: 'CORS misconfiguration testing' },
+  { p: 63, match: /(?:csrf|cross\s*site\s*request\s*forg)/i, skill: 'greyhatcc:webapp', hint: 'CSRF testing' },
+  { p: 63, match: /(?:lfi|rfi|local\s*file\s*inclus|remote\s*file\s*inclus|path\s*travers|directory\s*travers)/i, skill: 'greyhatcc:webapp', hint: 'File inclusion / path traversal' },
+  { p: 63, match: /(?:xxe|xml\s*external|xml\s*entity|xml\s*inject)/i, skill: 'greyhatcc:webapp', hint: 'XXE testing' },
+  { p: 63, match: /(?:open\s*redirect|url\s*redirect|redirect\s*manipul)/i, skill: 'greyhatcc:webapp', hint: 'Open redirect (chain with OAuth for token theft)' },
+  { p: 63, match: /(?:graphql\s*introspect|graphql\s*batch|graphql\s*alias|graphql\s*mutation)/i, skill: 'greyhatcc:api', hint: 'GraphQL-specific exploitation' },
 
   // --- EXPLOIT DEVELOPMENT ---
-  { p: 60, match: /(?:exploit|poc|proof.*of.*concept|payload|reverse.*shell|bind.*shell)/i, skill: 'greyhatcc:exploit', hint: 'Exploit development and PoC creation' },
-  { p: 60, match: /(?:cve[-\u2010]\d{4}|nvd|national.*vuln|exploit-db|searchsploit)/i, skill: 'greyhatcc:cve', hint: 'CVE search and analysis' },
+  { p: 60, match: /(?:exploit|poc|proof\s*of\s*concept|payload|reverse\s*shell|bind\s*shell)/i, skill: 'greyhatcc:exploit', hint: 'Exploit development and PoC creation' },
+  { p: 60, match: /(?:cve[-\u2010]\d{4}|nvd|national\s*vuln|exploit-db|searchsploit)/i, skill: 'greyhatcc:cve', hint: 'CVE search and analysis' },
 
   // --- FINDINGS & CHAINING ---
-  { p: 55, match: /(?:finding|log.*vuln|document.*bug|track.*issue|add.*finding)/i, skill: 'greyhatcc:findings', hint: 'Document and track security findings' },
-  { p: 55, match: /(?:gadget|chain|combine|link.*vuln|bug.*a.*bug.*b|low.*to.*high)/i, skill: 'greyhatcc:gadgets', hint: 'Gadget inventory + vulnerability chaining analysis' },
-  { p: 55, match: /(?:what.*tested|already.*tested|skip.*test|test.*tracker)/i, skill: 'greyhatcc:tested', hint: 'View/update tested endpoints tracker' },
+  { p: 55, match: /(?:finding|log\s*vuln|document\s*bug|track\s*issue|add\s*finding)/i, skill: 'greyhatcc:findings', hint: 'Document and track security findings' },
+  { p: 55, match: /(?:gadget|chain|combine|link\s*vuln|bug\s*a\s*bug\s*b|low\s*to\s*high)/i, skill: 'greyhatcc:gadgets', hint: 'Gadget inventory + vulnerability chaining analysis' },
+  { p: 55, match: /(?:what\s*(?:have\s*I\s*)?tested|already\s*tested|skip\s*test|test\s*tracker|coverage|untested|gaps)/i, skill: 'greyhatcc:tested', hint: 'View/update tested endpoints tracker' },
 
   // --- REPORTING ---
-  { p: 50, match: /(?:h1.*report|hackerone.*report|write.*report.*h1|submit.*report)/i, skill: 'greyhatcc:h1-report', hint: 'Generate HackerOne-ready vulnerability report' },
-  { p: 50, match: /(?:pentest.*report|professional.*report|ptes.*report|executive.*report)/i, skill: 'greyhatcc:report', hint: 'Full PTES/OWASP pentest report' },
+  { p: 50, match: /(?:h1\s*report|hackerone\s*report|write\s*(?:a\s*)?report\s*(?:for\s*)?h1|submit\s*report|write\s*(?:a\s*)?h1)/i, skill: 'greyhatcc:h1-report', hint: 'Generate HackerOne-ready vulnerability report' },
+  { p: 50, match: /(?:pentest\s*report|professional\s*report|ptes\s*report|executive\s*report)/i, skill: 'greyhatcc:report', hint: 'Full PTES/OWASP pentest report' },
 
   // --- WORKFLOW ---
-  { p: 45, match: /(?:bug.*bounty|bounty.*hunt|start.*hunt|bounty.*workflow)/i, skill: 'greyhatcc:bounty', hint: 'End-to-end bug bounty workflow' },
-  { p: 40, match: /(?:guide|reference|cheatsheet|methodology|howto|payload.*list)/i, skill: 'greyhatcc:guides', hint: 'Curated reference library (HowToHunt, HackTricks, PayloadsAllTheThings)' },
+  { p: 45, match: /(?:bug\s*bounty|bounty\s*hunt|bounty\s*workflow)/i, skill: 'greyhatcc:bounty', hint: 'End-to-end bug bounty workflow' },
+  { p: 40, match: /(?:guide|reference|cheatsheet|methodology|howto|payload\s*list)/i, skill: 'greyhatcc:guides', hint: 'Curated reference library (HowToHunt, HackTricks, PayloadsAllTheThings)' },
 
   // --- DIAGNOSTICS ---
-  { p: 10, match: /(?:greyhatcc.*(?:broken|error|fix|debug|diagnos|doctor|health))/i, skill: 'greyhatcc:doctor', hint: 'Plugin diagnostics and health check' },
+  { p: 10, match: /(?:greyhatcc\s*(?:broken|error|fix|debug|diagnos|doctor|health))/i, skill: 'greyhatcc:doctor', hint: 'Plugin diagnostics and health check' },
 ];
 
 async function main() {
@@ -139,11 +149,17 @@ async function main() {
 
   if (matches.length === 0) return;
 
-  // Check if top match is a MAGIC KEYWORD hunt activation
+  // Check if top match is a MAGIC KEYWORD activation
   if (matches[0].skill === '__MAGIC_HUNT__') {
-    // Force immediate skill invocation via MAGIC KEYWORD pattern (like OMC autopilot)
     console.log(JSON.stringify({
-      'system-reminder': createMagicKeyword(originalPrompt)
+      'system-reminder': createMagicKeyword('hunt', 'HUNT', originalPrompt)
+    }));
+    return;
+  }
+
+  if (matches[0].skill === '__MAGIC_PROGRAM__') {
+    console.log(JSON.stringify({
+      'system-reminder': createMagicKeyword('program-research', 'PROGRAM', originalPrompt)
     }));
     return;
   }
