@@ -66,11 +66,21 @@ For each work item, dispatch to the appropriate worker:
 Task(
   subagent_type="greyhatcc:{worker-name}",
   model=selectedModel,
-  prompt="Work item: " + compact_json(item) + "\nScope: " + scope_summary + "\nContext: " + item.context
+  prompt="Work item: " + compact_json(item) + "\nScope: " + scope_summary + "\nContext: " + item.context,
+  run_in_background=false  // default — see Execution Mode below
 )
 ```
 
 Keep dispatch prompts SMALL. Workers know their mission from their agent prompt.
+
+### Execution Mode
+
+You choose whether each worker runs in **foreground** or **background**:
+
+- **Foreground (default)**: Wait for the result before continuing. Use when the result informs your next decision — validation gates, exploit verification, intel analysis, report drafting.
+- **Background**: Fire and collect later. Use only when items are truly independent and you have other work to do in parallel — e.g., multiple recon workers hitting different hosts, or evidence curation while drafting a report.
+
+Not every agent needs to run in the background. Sequential execution is perfectly fine and often preferable — it lets you adapt after each result. Only parallelize when items are clearly independent and speed matters.
 
 ### Worker Routing
 
