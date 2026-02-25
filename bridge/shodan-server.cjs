@@ -21203,6 +21203,9 @@ function loadConfig() {
   if (process.env.H1_API_TOKEN) {
     config3.hackerone.apiToken = process.env.H1_API_TOKEN;
   }
+  if (process.env.H1_USERNAME) {
+    config3.hackerone.username = process.env.H1_USERNAME;
+  }
   return config3;
 }
 

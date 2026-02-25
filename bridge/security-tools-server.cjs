@@ -20851,18 +20851,6 @@ var SECURITY_TOOLS = [
       },
       required: ["url"]
     }
-  },
-  {
-    name: "h1_program_fetch",
-    description: "Fetch HackerOne bug bounty program details via REST API. Returns structured scope, bounty ranges, policy, and program metadata. Requires H1_API_TOKEN env var or hackerone.apiToken in config.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        handle: { type: "string", description: 'HackerOne program handle (e.g. "meesho_bbp", "shopify")' },
-        include_scopes: { type: "boolean", description: "Include structured scopes in response (default: true)" }
-      },
-      required: ["handle"]
-    }
   }
 ];
 
@@ -21808,147 +21796,6 @@ function cvssCalculate(vector) {
     exploitability: Math.round(exploitability * 10) / 10
   };
 }
-async function h1ProgramFetch(handle, apiToken, username, includeScopes = true) {
-  if (!handle || !/^[a-zA-Z0-9_-]+$/.test(handle)) {
-    throw new Error(`Invalid HackerOne program handle: ${handle}`);
-  }
-  if (apiToken && username) {
-    const authHeader = Buffer.from(`${username}:${apiToken}`).toString("base64");
-    const apiBase = "https://api.hackerone.com/v1/hackers/programs";
-    try {
-      const programRes = await securityFetch(
-        `${apiBase}?filter[handle]=${encodeURIComponent(handle)}`,
-        {
-          method: "GET",
-          timeout: 3e4,
-          headers: {
-            Authorization: `Basic ${authHeader}`,
-            Accept: "application/json"
-          }
-        },
-        2
-      );
-      if (programRes.status === 200) {
-        const programData = JSON.parse(programRes.body);
-        const program = programData.data?.[0];
-        if (!program) {
-          return {
-            handle,
-            source: "h1_api",
-            error: "Program not found or not accessible with current token",
-            suggestion: "Verify handle is correct and your H1 account has access to this program"
-          };
-        }
-        const result = {
-          handle,
-          source: "h1_api",
-          id: program.id,
-          name: program.attributes?.name,
-          state: program.attributes?.state,
-          started_accepting_at: program.attributes?.started_accepting_at,
-          submission_state: program.attributes?.submission_state,
-          offers_bounties: program.attributes?.offers_bounties,
-          policy: program.attributes?.policy,
-          profile: {
-            name: program.attributes?.profile?.name,
-            about: program.attributes?.profile?.about,
-            website: program.attributes?.profile?.website
-          }
-        };
-        if (includeScopes && program.id) {
-          try {
-            const scopeRes = await securityFetch(
-              `${apiBase}/${program.id}/structured_scopes?page[size]=100`,
-              {
-                method: "GET",
-                timeout: 3e4,
-                headers: {
-                  Authorization: `Basic ${authHeader}`,
-                  Accept: "application/json"
-                }
-              },
-              1
-            );
-            if (scopeRes.status === 200) {
-              const scopeData = JSON.parse(scopeRes.body);
-              const scopes = (scopeData.data || []).map((s) => ({
-                asset_identifier: s.attributes?.asset_identifier,
-                asset_type: s.attributes?.asset_type,
-                eligible_for_bounty: s.attributes?.eligible_for_bounty,
-                eligible_for_submission: s.attributes?.eligible_for_submission,
-                instruction: s.attributes?.instruction,
-                max_severity: s.attributes?.max_severity,
-                created_at: s.attributes?.created_at
-              }));
-              result.scopes = {
-                in_scope: scopes.filter((s) => s.eligible_for_submission),
-                out_of_scope: scopes.filter((s) => !s.eligible_for_submission),
-                total: scopes.length
-              };
-            }
-          } catch {
-            result.scopes = { error: "Failed to fetch structured scopes" };
-          }
-        }
-        return result;
-      }
-      if (programRes.status === 401 || programRes.status === 403) {
-        return {
-          handle,
-          source: "h1_api",
-          error: `Authentication failed (${programRes.status})`,
-          suggestion: "Check H1_API_TOKEN and hackerone.username in config"
-        };
-      }
-    } catch (err) {
-    }
-  }
-  try {
-    const publicUrl = `https://hackerone.com/${handle}`;
-    const res = await securityFetch(publicUrl, { method: "GET", timeout: 2e4 }, 1);
-    const jsonLdMatch = res.body.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-    const metaDescription = res.body.match(/<meta[^>]+name=["']description["'][^>]+content=["']([^"']+)["']/i);
-    const ogTitle = res.body.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-    const nextDataMatch = res.body.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-    const result = {
-      handle,
-      source: "public_scrape",
-      note: "Limited data - HackerOne requires JS rendering. Use Playwright MCP for full extraction, or configure H1_API_TOKEN for API access.",
-      url: publicUrl,
-      statusCode: res.status
-    };
-    if (jsonLdMatch) {
-      try {
-        result.structured_data = JSON.parse(jsonLdMatch[1]);
-      } catch {
-      }
-    }
-    if (nextDataMatch) {
-      try {
-        const nextData = JSON.parse(nextDataMatch[1]);
-        result.hydration_data = nextData?.props?.pageProps;
-      } catch {
-      }
-    }
-    if (metaDescription)
-      result.description = metaDescription[1];
-    if (ogTitle)
-      result.title = ogTitle[1];
-    if (res.status === 404) {
-      result.error = "Program not found (404)";
-    } else if (res.status === 302 || res.status === 301) {
-      result.note = "Program page redirected - may be private or renamed";
-    }
-    return result;
-  } catch (err) {
-    return {
-      handle,
-      source: "public_scrape",
-      error: `Failed to fetch program page: ${err.message}`,
-      suggestion: "Use Playwright MCP browser tools for JS-rendered pages, or configure H1_API_TOKEN"
-    };
-  }
-}
 
 // src/shared/config.ts
 var import_fs = require("fs");
@@ -22011,6 +21858,9 @@ function loadConfig() {
   }
   if (process.env.H1_API_TOKEN) {
     config3.hackerone.apiToken = process.env.H1_API_TOKEN;
+  }
+  if (process.env.H1_USERNAME) {
+    config3.hackerone.username = process.env.H1_USERNAME;
   }
   return config3;
 }
@@ -22100,14 +21950,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       case "redirect_chain":
         result = await redirectChain(args.url, args.max_redirects);
-        break;
-      case "h1_program_fetch":
-        result = await h1ProgramFetch(
-          args.handle,
-          config2.hackerone?.apiToken,
-          config2.hackerone?.username,
-          args.include_scopes !== false
-        );
         break;
       default:
         return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };

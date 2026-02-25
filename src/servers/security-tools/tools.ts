@@ -164,16 +164,4 @@ export const SECURITY_TOOLS = [
       required: ['url'],
     },
   },
-  {
-    name: 'h1_program_fetch',
-    description: 'Fetch HackerOne bug bounty program details via REST API. Returns structured scope, bounty ranges, policy, and program metadata. Requires H1_API_TOKEN env var or hackerone.apiToken in config.',
-    inputSchema: {
-      type: 'object' as const,
-      properties: {
-        handle: { type: 'string', description: 'HackerOne program handle (e.g. "meesho_bbp", "shopify")' },
-        include_scopes: { type: 'boolean', description: 'Include structured scopes in response (default: true)' },
-      },
-      required: ['handle'],
-    },
-  },
 ];

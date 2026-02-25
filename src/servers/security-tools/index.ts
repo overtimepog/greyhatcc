@@ -14,7 +14,6 @@ import {
   portCheck,
   redirectChain,
   cvssCalculate,
-  h1ProgramFetch,
 } from './utils.js';
 import { loadConfig } from '../../shared/config.js';
 
@@ -126,15 +125,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'redirect_chain':
         result = await redirectChain(args.url as string, args.max_redirects as number);
-        break;
-
-      case 'h1_program_fetch':
-        result = await h1ProgramFetch(
-          args.handle as string,
-          config.hackerone?.apiToken,
-          config.hackerone?.username,
-          args.include_scopes !== false,
-        );
         break;
 
       default:
