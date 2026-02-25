@@ -51,8 +51,7 @@ export SHODAN_API_KEY="your_key_here"
 export H1_API_TOKEN="your_token_here"
 export H1_USERNAME="your_h1_username"
 ```
-
-Get your API token from [HackerOne API Settings](https://hackerone.com/settings/api_token/edit). The token is Base64-encoded `username:token`.
+Get your API token from [HackerOne API Settings](https://hackerone.com/settings/api_token/edit).
 
 ### NVD API Key (optional, higher rate limits)
 
