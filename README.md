@@ -1,8 +1,8 @@
 # greyhatcc
 
-Autonomous offensive security toolkit for Claude Code. 33 skills, 32 commands, 31 agents, 4 MCP servers (Shodan 18 tools, Security Tools 14 tools, HackerOne API 15 tools, Web Tools 24 tools), and 8 hooks for credential guarding, scope validation, finding tracking, and context persistence.
+Autonomous offensive security toolkit for Claude Code. 33 skills, 32 commands, 8 agents, 4 MCP servers (Shodan 18 tools, Security Tools 14 tools, HackerOne API 15 tools, Web Tools 24 tools), and 13 hooks for credential guarding, scope validation, finding tracking, hunt state persistence, and context compaction.
 
-**v6.1.0** — New Web Tools MCP server with 24 Burp Suite-equivalent tools: multi-session browser automation, traffic interception, request replay/fuzz, and response analysis. Full HackerOne API integration, autopilot-style hunt mode with Task() dispatch, multi-wave attack strategy, signal amplification, graph-based vulnerability chaining, and adaptive WAF evasion.
+**v7.0.0** — Complete hunt architecture redesign: event-driven priority-queue engine replaces the waterfall pipeline. Continuous intelligence feedback loop with signal amplification, gadget chaining (provides/requires directed graph), 5-gate validation, dynamic model routing (haiku/sonnet/opus) with automatic escalation, and persistent `hunt-state/` directory that survives context compaction and session restarts. Agent count consolidated from 31 to 8 purpose-built workers. Full HackerOne API integration, 4 MCP servers (71 tools), and adaptive WAF evasion.
 
 ## Prerequisites
 
@@ -83,62 +83,68 @@ export NVD_API_KEY="your_key_here"
 # Configure via MCP: mcp__Context7__resolve-library-id + query-docs
 ```
 
-## Hunt Mode — The Autonomous Bounty Pipeline
+## Hunt Mode — Event-Driven Priority Queue Engine
 
-Hunt mode is the flagship feature — an elite autonomous bug bounty operator inspired by XBOW, PentestGPT, and Big Sleep. It runs 5 phases from zero to validated H1-ready reports.
+Hunt mode is the flagship feature — an elite autonomous bug bounty operator inspired by XBOW, PentestGPT, and Big Sleep. It uses an **event-driven priority queue** that continuously dispatches, evaluates, and reprioritizes work items from zero to validated H1-ready reports.
 
 ```bash
 /greyhatcc:hunt <program>
+# Resume a previous hunt:
+/greyhatcc:hunt --resume
+# Focus on specific areas:
+/greyhatcc:hunt <program> --focus ssrf,idor
 ```
 
 ### Architecture
 
 ```
-HUNT ORCHESTRATOR (coordinates everything)
-├── Phase 1: EXPAND — H1 API research + parallel 5-phase recon
-│   ├── recon-specialist (sonnet) — ASN/BGP, DNS, WAF, Shodan
-│   ├── osint-researcher (sonnet) — Employees, acquisitions, tech stack
-│   ├── js-analyst (sonnet) — JS bundles, source maps, secrets
-│   ├── cloud-recon (sonnet) — S3/GCS/Azure/Firebase
-│   ├── subdomain-takeover (sonnet) — Dangling CNAME/NS/MX
-│   └── network-analyst-low (haiku) — Port scanning
-├── Phase 2: PLAN — ROI ranking + Context7 tech mapping + CVE intel
-├── Phase 3: ATTACK — Multi-wave persistent hunt loop
-│   ├── Wave 1: Quick wins (all parallel, haiku, 15min/target)
-│   ├── Wave 2: Deep testing (sonnet/opus, 60min/target)
-│   └── Wave 3: Advanced exploitation (opus, chain-focused)
-├── Phase 4: VALIDATE — 5-gate pipeline + chain analysis
-│   └── Scope → Exclusion → Dedup → Proof → Quality
-├── Phase 5: REPORT — H1-ready reports + quality gate
-└── TRIPLE VERIFICATION — Coverage × Quality × Completeness
+HUNT ORCHESTRATOR (opus) — event loop
+│
+├── SEED: H1 API research → enqueue initial recon work items
+│
+├── HUNT LOOP (repeats until queue empty or budget exhausted):
+│   ├── dequeue() → highest priority queued WorkItem
+│   ├── Route to worker by type:
+│   │   ├── recon-worker (haiku) — 9 subtypes
+│   │   ├── test-worker (sonnet) — 15 subtypes + WAF evasion
+│   │   ├── exploit-worker (opus) — PoC dev + chain execution
+│   │   ├── validate-worker (sonnet/opus) — 5-gate pipeline
+│   │   └── report-worker (sonnet) — H1-ready reports
+│   ├── Process result → update surfaces, signals, gadgets, findings
+│   ├── Auto-enqueue new_work_items from result
+│   └── Every 5 items: intel-worker analyzes + reprioritizes queue
+│
+├── FINALIZE: coverage report + remaining queue summary
+│
+└── STATE: hunt-state/ directory (persists across compaction + restarts)
+    ├── hunt.json, queue.json, findings.json, surfaces.json
+    ├── gadgets.json, signals.json, coverage.json, intel-log.json
+    └── reports/, evidence/
 ```
 
-### Advanced Intelligence Systems
+### Intelligence Systems
 
 | System | Description |
 |--------|-------------|
-| **Signal Amplification** | 15 weak-signal → focused-investigation mappings. Unusual header → SSRF hunt, source map → full source reconstruction, GraphQL introspection → schema dump |
-| **Confidence Scoring** | Findings scored 0-1. Routes: >0.8 fast-track, 0.5-0.8 more testing, <0.5 log as signal |
-| **Graph-Based Chaining** | Directed graph with provides/requires tags. Auto-discovers chains: Self-XSS+CSRF→ATO, SSRF→metadata→IAM→cloud takeover |
-| **Adaptive WAF Evasion** | 8-level escalation: headers → encoding → content-type → Playwright → HPP → body padding → HTTP/2 smuggling |
-| **Multi-Wave Attack** | Wave 1 signals feed Wave 2 focus. Wave 2 gadgets feed Wave 3 chains |
-| **Cross-Target Correlation** | Shared frameworks, auth, CDN patterns across multiple assets |
-| **Historical Learning** | Cross-session intelligence via MEMORY.md |
+| **Priority Queue** | WorkItems scored 0-100, highest dequeued first. Dynamic reprioritization based on intel analysis |
+| **Signal Amplification** | 20+ weak-signal → focused-investigation rules. Unusual header → SSRF hunt, source map → full source reconstruction |
+| **Gadget Chaining** | Directed graph with 30+ provides/requires tags. BFS traversal discovers chains: Self-XSS+CSRF→ATO, SSRF→metadata→IAM→cloud takeover |
+| **5-Gate Validation** | Scope → Exclusion → Dedup → Proof → Quality. Each gate must pass before report generation |
+| **Model Escalation** | haiku → sonnet → opus on failure. Automatic escalation preserves work item context |
+| **WAF Evasion Ladder** | 8-level escalation: encoding → HPP → content-type → body padding → smuggling → Playwright → origin discovery |
+| **Coverage Tracking** | Endpoint × vuln-class matrix. Intel module identifies gaps and enqueues targeted tests |
+| **Persistent State** | `hunt-state/` directory survives context compaction, Ctrl+C, session restarts via PreCompact hook |
 
-### Task() Dispatch
+### Dynamic Model Routing
 
-Hunt mode delegates all work via OMC autopilot-style `Task()` calls:
-
-```
-Task(
-  subagent_type="greyhatcc:webapp-tester",
-  model="opus",
-  prompt="Full OWASP Top 10 testing on <target>...",
-  run_in_background=true
-)
-```
-
-Smart model routing: `haiku` for quick checks, `sonnet` for testing workflows, `opus` for exploitation and analysis.
+| Work Type | Default Model | Escalation Path |
+|-----------|--------------|-----------------|
+| Recon (subdomain-enum, tech-fingerprint, shodan) | haiku | → sonnet → opus |
+| Testing (OWASP, SSRF, IDOR, XSS, SQLi) | sonnet | → opus |
+| Exploitation (PoC, chains) | opus | — |
+| Validation (5-gate pipeline) | sonnet | → opus |
+| Reporting (H1 format) | sonnet | → opus |
+| Intel (analysis, reprioritization) | sonnet | — |
 
 ## Commands (32)
 
@@ -364,73 +370,41 @@ Multi-session browser automation with Burp Suite-equivalent capabilities. Each s
 | `web_js_extract` | Extract JavaScript files and inline scripts |
 | `web_storage_dump` | Dump localStorage, sessionStorage, and cookies |
 
-## Hooks (8)
+## Hooks (13 scripts, 10 event types)
 
 | Event | Script | Purpose |
 |-------|--------|---------|
-| `SessionStart` | `session-start.mjs` | Initialize session context and load engagement state |
+| `SessionStart` | `session-start.mjs` | Initialize session context, load engagement state, detect hunt-state/ for resume |
 | `UserPromptSubmit` | `keyword-detector.mjs` | Detect security keywords and suggest relevant skills |
-| `PreToolUse` (Bash) | `scope-validator.mjs` | Validate targets are in scope before execution |
+| `PreToolUse` (Bash) | `scope-validator.mjs` | Validate targets are in scope (reads hunt-state/hunt.json first, then .greyhatcc/scope.json) |
 | `PreToolUse` (Write/Edit) | `credential-guard.mjs` | Prevent credential leaks in written files |
-| `PreCompact` | `pre-compact.mjs` | Persist directives and context before compaction |
+| `PreCompact` | `pre-compact.mjs` | Persist directives, context, and hunt-state/ before compaction |
+| `PreCompact` | `hunt-state-saver.mjs` | Save hunt loop state (queue stats, findings count) for post-compaction resume |
 | `PostToolUse` (Bash) | `scan-output-logger.mjs` | Log scan outputs for later analysis |
-| `PostToolUse` (Bash) | `finding-tracker.mjs` | Track discovered findings automatically |
+| `PostToolUse` (Bash) | `finding-tracker.mjs` | Track discovered findings (dedup-aware with hunt-state/findings.json) |
 | `PostToolUse` (Write/Edit) | `report-validator.mjs` | Validate report quality on save |
+| `SubagentStart` | `subagent-tracker.mjs` | Track spawned subagent lifecycle |
+| `SubagentStop` | `subagent-tracker.mjs` | Record subagent completion |
+| `Stop` | `hunt-persist.mjs` | Persist hunt state on Ctrl+C / session stop |
+| `SessionEnd` | `session-end.mjs` | Clean up session resources |
+| `PermissionRequest` (Bash) | `permission-handler.mjs` | Handle permission requests for bash commands |
 
-## Agent Architecture (31 agents)
+## Agent Architecture (8 agents)
 
-Tiered agent model for cost-efficient Task() dispatch:
+Consolidated from 31 → 8 purpose-built agents. Each agent handles one capability domain with dynamic model routing via the hunt orchestrator.
 
-### Recon Agents
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `recon-specialist` | Sonnet | Full 5-phase recon: ASN/BGP, passive DNS, cloud, WAF, Shodan |
-| `recon-specialist-low` | Haiku | CT logs, single-source enum, quick Shodan |
-| `recon-specialist-high` | Opus | Complex targets, evasion-aware, multi-source correlation |
-| `osint-researcher` | Sonnet | Employees, acquisitions, tech stack, job postings |
-| `osint-researcher-low` | Haiku | Single-source lookups |
-| `osint-researcher-high` | Opus | Breach correlation, identity mapping, supply chain |
-| `js-analyst` | Sonnet | JS bundles, source maps, secrets, endpoints |
-| `js-analyst-low` | Haiku | Quick endpoint extraction |
-| `cloud-recon` | Sonnet | S3/GCS/Azure/Firebase misconfig, CDN origin |
-| `cloud-recon-low` | Haiku | Quick bucket enumeration |
-| `subdomain-takeover` | Sonnet | Dangling CNAME/NS/MX detection |
-| `network-analyst` | Sonnet | Port scan interpretation, service enum |
-| `network-analyst-low` | Haiku | Quick port/service lookups |
+| Agent | Default Model | Purpose | Subtypes |
+|-------|--------------|---------|----------|
+| `hunt-orchestrator` | Opus | Main hunt loop, dispatches all work via Task(), manages queue and state | — |
+| `recon-worker` | Haiku | All reconnaissance: subdomains, tech fingerprint, Shodan, OSINT, JS analysis, cloud recon, H1 research, subdomain takeover, port scanning | 9 |
+| `test-worker` | Sonnet | All security testing: OWASP quick, SSRF, IDOR, XSS, SQLi, auth, API, business logic, file upload, open redirect, CORS, header injection, GraphQL, WordPress, cache poisoning | 15 |
+| `exploit-worker` | Opus | PoC development, impact maximization, gadget chain execution | — |
+| `validate-worker` | Sonnet | 5-gate validation: scope, exclusion, dedup, proof reproducibility, quality | — |
+| `report-worker` | Sonnet | H1-ready report generation with CVSS, CWE, reproduction steps, impact | — |
+| `intel-worker` | Sonnet | Signal amplification, gadget chain analysis, coverage gaps, cross-target correlation, queue reprioritization | 6 functions |
+| `scope-manager` | Haiku | Scope validation and engagement rules (READ-ONLY) | — |
 
-### Testing Agents
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `webapp-tester` | Opus | Full OWASP Top 10 + business logic |
-| `webapp-tester-low` | Haiku | Quick headers, cookies, CORS |
-| `auth-tester` | Opus | OAuth/OIDC/JWT/SAML/Cognito deep testing |
-| `auth-tester-low` | Haiku | JWT decode, token inspection |
-| `api-tester` | Opus | REST/GraphQL/gRPC: BOLA, mass assignment, schema |
-| `api-tester-low` | Haiku | Quick endpoint enum |
-
-### Analysis & Exploit Agents
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `vuln-analyst` | Opus | Deep CVE research, attack chain mapping |
-| `vuln-analyst-low` | Haiku | Quick CVE lookups |
-| `exploit-developer` | Opus | Custom PoC, payload crafting |
-| `exploit-developer-low` | Haiku | Quick PoC adaptation |
-
-### Reporting & Validation Agents
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `report-writer` | Sonnet | Professional H1/pentest reports |
-| `report-writer-low` | Haiku | Quick finding notes |
-| `report-writer-high` | Opus | Executive-level, business impact, compliance |
-| `proof-validator` | Opus | Re-run exploits, verify deterministic proof |
-| `report-quality-gate` | Opus | Validate reports for H1 submission |
-| `scope-manager` | Haiku | Scope validation, engagement rules (READ-ONLY) |
-
-### Orchestration Agents
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| `bounty-hunter` | Opus | Full hunt lifecycle orchestration with Task() dispatch |
-| `hunt-loop-orchestrator` | Opus | Persistent 5-phase lifecycle with state tracking |
+Previous 31 agents archived in `agents/_archive/` for reference.
 
 ## External AI Integration
 
@@ -462,7 +436,16 @@ npm run typecheck        # TypeScript type checking
 
 ```
 greyhatcc/
-├── agents/              # 31 agent definitions
+├── agents/              # 8 active agent definitions
+│   ├── _archive/        # 30 archived v6 agents (reference only)
+│   ├── hunt-orchestrator.md
+│   ├── recon-worker.md
+│   ├── test-worker.md
+│   ├── exploit-worker.md
+│   ├── validate-worker.md
+│   ├── report-worker.md
+│   ├── intel-worker.md
+│   └── scope-manager.md
 ├── bridge/              # Compiled MCP server bundles (CJS)
 │   ├── hackerone-server.cjs
 │   ├── security-tools-server.cjs
@@ -470,18 +453,38 @@ greyhatcc/
 │   └── web-tools-server.cjs
 ├── commands/            # 32 slash command definitions
 ├── config/              # Example configuration
-├── hooks/               # hooks.json event registry
+├── hooks/               # hooks.json event registry (13 hooks)
 ├── scripts/             # Hook scripts + shared libraries
-│   └── lib/             # Shared utilities (scope, state, dupes, stdin)
+│   ├── lib/
+│   │   ├── hunt-queue.mjs   # Priority queue: enqueue, dequeue, escalate, reprioritize
+│   │   └── hunt-state.mjs   # State persistence: findings, surfaces, gadgets, signals, coverage
+│   └── hunt-state-saver.mjs # PreCompact hook for hunt state preservation
 ├── skills/              # 33 skill definitions
-│   └── hunt/            # Flagship autonomous hunt pipeline
+│   └── hunt/            # Event-driven hunt pipeline
+│       ├── skill.md         # Main hunt loop algorithm
+│       ├── modules/         # 6 capability modules (recon, test, exploit, validate, report, intel)
+│       ├── amplification.md # Signal → investigation mapping rules
+│       ├── chaining.md      # Gadget provides/requires graph + chain templates
+│       ├── evasion.md       # 8-level WAF evasion ladder
+│       └── schemas/         # Data type documentation with examples
 ├── src/                 # TypeScript source
 │   ├── servers/
 │   │   ├── hackerone/        # HackerOne API v1 client (15 tools)
 │   │   ├── security-tools/   # CVE, exploit, header, WAF, CORS, etc.
 │   │   ├── shodan/           # Shodan API client (18 tools)
 │   │   └── web-tools/        # Browser automation + Burp Suite tools (24 tools)
-│   └── shared/               # Config and type definitions
+│   └── shared/
+│       └── hunt-types.ts     # Canonical TypeScript interfaces (11 types)
+├── hunt-state/          # Runtime hunt state (created by hunt mode)
+│   ├── hunt.json            # Top-level HuntState
+│   ├── queue.json           # WorkItem[] priority queue
+│   ├── findings.json        # Finding[] all findings
+│   ├── surfaces.json        # Surface[] attack surface map
+│   ├── gadgets.json         # Gadget[] exploitation primitives
+│   ├── signals.json         # Signal[] weak signals
+│   ├── coverage.json        # CoverageTracker
+│   └── reports/             # Generated H1-ready reports
+├── tests/               # Unit tests for hunt libraries
 ├── .mcp.json            # MCP server declarations
 ├── esbuild.config.mjs   # Build configuration
 ├── package.json         # Dependencies and scripts

@@ -1,7 +1,7 @@
 {
   "name": "greyhatcc",
-  "version": "6.1.0",
-  "description": "Autonomous offensive security toolkit for Claude Code - persistent hunt loops, self-correcting validation pipelines, parallel recon agents, exploit development, vulnerability chaining, and HackerOne-ready report generation",
+  "version": "7.0.0",
+  "description": "Autonomous offensive security toolkit for Claude Code - event-driven priority-queue hunt engine, continuous intelligence feedback, dynamic model routing, gadget chaining, 5-gate validation, and HackerOne-ready report generation",
   "author": {
     "name": "overtimedev",
     "url": "https://github.com/overtimedev"
