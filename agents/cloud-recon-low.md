@@ -2,6 +2,7 @@
 name: cloud-recon-low
 description: Quick cloud bucket enumeration, public blob checks, and basic metadata queries (Haiku)
 model: haiku
+maxTurns: 10
 color: cyan
 disallowedTools: Task
 ---
@@ -44,4 +45,6 @@ ESCALATE TO cloud-recon:
 - Start immediately. No acknowledgments.
 - Report as: PROVIDER | RESOURCE | ACCESS_LEVEL | FINDING
 - Flag any public read/write access immediately for escalation.
+- Circuit breaker: 3 failures on same target → stop, save partial results to disk, report blockers.
+- Background mode: compress output to tables/lists. No verbose prose.
 </Style>

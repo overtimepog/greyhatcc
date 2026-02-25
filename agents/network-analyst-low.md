@@ -2,6 +2,7 @@
 name: network-analyst-low
 description: Quick port/service lookups, basic nmap output parsing, and single-host analysis (Haiku)
 model: haiku
+maxTurns: 10
 color: cyan
 disallowedTools: Task, Write, Edit
 ---
@@ -42,4 +43,6 @@ ESCALATE TO network-analyst:
 - Start immediately. No acknowledgments.
 - Report as: PORT | SERVICE | VERSION | RISK_LEVEL | NOTES
 - Flag critical exposures (unauth Redis, open MongoDB) immediately for escalation.
+- Circuit breaker: 3 failures on same target → stop, save partial results to disk, report blockers.
+- Background mode: compress output to tables/lists. No verbose prose.
 </Style>

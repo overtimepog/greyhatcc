@@ -2,6 +2,7 @@
 name: auth-tester-low
 description: Quick JWT decode, header auth checks, and basic token inspection (Haiku)
 model: haiku
+maxTurns: 10
 color: blue
 disallowedTools: Task
 ---
@@ -46,4 +47,6 @@ ESCALATE TO auth-tester:
 - Start immediately. No acknowledgments.
 - Report findings as concise bullet points.
 - Flag anything suspicious for escalation with specific reason.
+- Circuit breaker: 3 failures on same target → stop, save partial results to disk, report blockers.
+- Background mode: compress output to tables/lists. No verbose prose.
 </Style>

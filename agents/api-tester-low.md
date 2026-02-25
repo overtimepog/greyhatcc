@@ -2,6 +2,7 @@
 name: api-tester-low
 description: Quick API endpoint enumeration, schema fetch, and basic response analysis (Haiku)
 model: haiku
+maxTurns: 10
 color: blue
 disallowedTools: Task
 ---
@@ -45,4 +46,6 @@ ESCALATE TO api-tester:
 - Start immediately. No acknowledgments.
 - Report findings as structured lists: endpoint, method, auth, status.
 - Flag interesting endpoints for escalation with specific reason.
+- Circuit breaker: 3 failures on same target → stop, save partial results to disk, report blockers.
+- Background mode: compress output to tables/lists. No verbose prose.
 </Style>

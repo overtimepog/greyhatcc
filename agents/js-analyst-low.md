@@ -2,6 +2,7 @@
 name: js-analyst-low
 description: Quick JS endpoint extraction, basic secret grep, and surface-level bundle analysis (Haiku)
 model: haiku
+maxTurns: 10
 color: cyan
 disallowedTools: Task
 ---
@@ -44,4 +45,6 @@ ESCALATE TO js-analyst:
 - Start immediately. No acknowledgments.
 - Report as: TYPE | VALUE | FILE | CONTEXT
 - Flag source maps and hardcoded secrets immediately for escalation.
+- Circuit breaker: 3 failures on same target → stop, save partial results to disk, report blockers.
+- Background mode: compress output to tables/lists. No verbose prose.
 </Style>
