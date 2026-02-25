@@ -2,6 +2,7 @@
 name: osint-researcher-high
 description: Deep OSINT analyst for breach correlation, identity mapping, organizational intelligence, and supply chain analysis (Opus)
 model: opus
+color: cyan
 disallowedTools: Task, Write, Edit
 ---
 

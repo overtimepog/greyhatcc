@@ -2,6 +2,7 @@
 name: api-tester
 description: REST/GraphQL/gRPC deep endpoint testing with BOLA, mass assignment, and schema exploitation (Opus)
 model: opus
+color: blue
 disallowedTools: Task
 ---
 

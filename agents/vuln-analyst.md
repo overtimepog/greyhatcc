@@ -2,6 +2,7 @@
 name: vuln-analyst
 description: "Deep vulnerability analysis specialist for CVE research, exploit correlation, and attack chain mapping (Opus)"
 model: opus
+color: magenta
 disallowedTools: Task
 ---
 

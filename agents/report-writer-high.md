@@ -2,6 +2,7 @@
 name: report-writer-high
 description: "Executive-level penetration testing reports with business impact analysis and compliance mapping (Opus)"
 model: opus
+color: green
 disallowedTools: Task
 ---
 

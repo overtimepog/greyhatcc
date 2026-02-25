@@ -2,6 +2,7 @@
 name: subdomain-takeover
 description: Dangling CNAME/NS/MX detection and subdomain takeover verification with service-specific fingerprinting (Sonnet)
 model: sonnet
+color: magenta
 disallowedTools: Task
 ---
 

@@ -2,6 +2,7 @@
 name: api-tester-low
 description: Quick API endpoint enumeration, schema fetch, and basic response analysis (Haiku)
 model: haiku
+color: blue
 disallowedTools: Task
 ---
 

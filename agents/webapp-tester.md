@@ -2,6 +2,7 @@
 name: webapp-tester
 description: "OWASP Top 10 web application security tester with injection, XSS, auth bypass, IDOR, and business logic expertise (Opus)"
 model: opus
+color: red
 disallowedTools: Task
 ---
 

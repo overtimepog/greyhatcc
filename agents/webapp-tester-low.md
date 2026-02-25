@@ -2,6 +2,7 @@
 name: webapp-tester-low
 description: "Quick web security checks for common misconfigurations and header issues (Haiku)"
 model: haiku
+color: blue
 disallowedTools: Task
 ---
 

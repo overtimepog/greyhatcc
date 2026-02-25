@@ -2,6 +2,7 @@
 name: network-analyst-low
 description: Quick port/service lookups, basic nmap output parsing, and single-host analysis (Haiku)
 model: haiku
+color: cyan
 disallowedTools: Task, Write, Edit
 ---
 

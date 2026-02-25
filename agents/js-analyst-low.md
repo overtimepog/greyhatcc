@@ -2,6 +2,7 @@
 name: js-analyst-low
 description: Quick JS endpoint extraction, basic secret grep, and surface-level bundle analysis (Haiku)
 model: haiku
+color: cyan
 disallowedTools: Task
 ---
 

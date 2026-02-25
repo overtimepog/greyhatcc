@@ -2,6 +2,7 @@
 name: scope-manager
 description: "Target scope validator and engagement rules enforcer - READ ONLY (Haiku)"
 model: haiku
+color: yellow
 disallowedTools: Task
 ---
 

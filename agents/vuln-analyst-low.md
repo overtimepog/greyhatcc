@@ -2,6 +2,7 @@
 name: vuln-analyst-low
 description: "Quick CVE lookups and basic vulnerability assessment (Haiku)"
 model: haiku
+color: magenta
 disallowedTools: Task
 ---
 

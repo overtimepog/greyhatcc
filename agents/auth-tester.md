@@ -2,6 +2,7 @@
 name: auth-tester
 description: OAuth/OIDC/JWT/SAML/Cognito/Auth0 deep business logic auth testing with session and token exploitation (Opus)
 model: opus
+color: red
 disallowedTools: Task
 ---
 

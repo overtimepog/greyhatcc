@@ -2,6 +2,7 @@
 name: cloud-recon-low
 description: Quick cloud bucket enumeration, public blob checks, and basic metadata queries (Haiku)
 model: haiku
+color: cyan
 disallowedTools: Task
 ---
 

@@ -2,6 +2,7 @@
 name: osint-researcher-low
 description: "Quick OSINT lookups for single-source queries (Haiku)"
 model: haiku
+color: cyan
 disallowedTools: Task
 ---
 

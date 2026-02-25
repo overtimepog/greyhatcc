@@ -2,6 +2,7 @@
 name: network-analyst
 description: "Network infrastructure analyst for port scan interpretation, service enumeration, and network topology mapping (Sonnet)"
 model: sonnet
+color: cyan
 disallowedTools: Task
 ---
 

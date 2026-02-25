@@ -2,6 +2,7 @@
 name: osint-researcher
 description: "Open source intelligence specialist for target profiling and attack surface mapping from public sources (Sonnet)"
 model: sonnet
+color: cyan
 disallowedTools: Task
 ---
 

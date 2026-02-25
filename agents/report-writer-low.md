@@ -2,6 +2,7 @@
 name: report-writer-low
 description: "Quick finding notes and evidence documentation (Haiku)"
 model: haiku
+color: green
 disallowedTools: Task
 ---
 

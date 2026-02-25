@@ -2,6 +2,7 @@
 name: recon-specialist-low
 description: "Fast passive reconnaissance for quick lookups and single-source enumeration (Haiku)"
 model: haiku
+color: cyan
 disallowedTools: Task
 ---
 

@@ -2,6 +2,7 @@
 name: js-analyst
 description: JavaScript bundle analysis for endpoint extraction, source map reconstruction, secret discovery, and client-side vulnerability identification (Sonnet)
 model: sonnet
+color: cyan
 disallowedTools: Task
 ---
 

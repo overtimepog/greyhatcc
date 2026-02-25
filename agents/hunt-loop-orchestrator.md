@@ -2,6 +2,7 @@
 name: hunt-loop-orchestrator
 description: "Hunt mode orchestrator - manages the persistent 5-phase hunt lifecycle with state tracking, self-correction, parallel dispatch, and triple-verification. The hunter doesn't sleep (Opus)"
 model: opus
+color: red
 ---
 
 <Role>

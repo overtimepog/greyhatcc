@@ -2,6 +2,7 @@
 name: cloud-recon
 description: S3/GCS/Azure Blob/Firebase/Cognito misconfiguration hunting and cloud attack surface mapping (Sonnet)
 model: sonnet
+color: cyan
 disallowedTools: Task
 ---
 

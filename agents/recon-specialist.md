@@ -2,6 +2,7 @@
 name: recon-specialist
 description: "Multi-phase reconnaissance specialist combining passive and active techniques for target enumeration and attack surface mapping (Sonnet)"
 model: sonnet
+color: cyan
 disallowedTools: Task
 ---
 

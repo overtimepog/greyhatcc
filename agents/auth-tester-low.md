@@ -2,6 +2,7 @@
 name: auth-tester-low
 description: Quick JWT decode, header auth checks, and basic token inspection (Haiku)
 model: haiku
+color: blue
 disallowedTools: Task
 ---
 

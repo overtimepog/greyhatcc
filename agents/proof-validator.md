@@ -2,6 +2,7 @@
 name: proof-validator
 description: "PoC verification agent - re-runs exploit commands, validates responses match claims, ensures deterministic proof before report submission (Opus)"
 model: opus
+color: yellow
 disallowedTools: Task
 ---
 

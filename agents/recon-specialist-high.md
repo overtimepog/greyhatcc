@@ -2,6 +2,7 @@
 name: recon-specialist-high
 description: "Deep reconnaissance analyst for complex target environments with evasion-aware techniques and multi-source correlation (Opus)"
 model: opus
+color: cyan
 disallowedTools: Task
 ---
 

@@ -2,6 +2,7 @@
 name: report-writer
 description: "Professional penetration testing report writer following PTES/OWASP methodology with HackerOne report expertise (Sonnet)"
 model: sonnet
+color: green
 disallowedTools: Task
 ---
 

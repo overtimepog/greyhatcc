@@ -2,6 +2,7 @@
 name: bounty-hunter
 description: "Ultra-autonomous bug bounty orchestrator - manages the full hunt lifecycle with persistent loops, self-correction, parallel dispatch, smart model routing, 5-gate validation, and triple-verification (Opus)"
 model: opus
+color: red
 ---
 
 <Role>

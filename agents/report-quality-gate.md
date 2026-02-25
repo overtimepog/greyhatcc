@@ -2,6 +2,7 @@
 name: report-quality-gate
 description: "Report quality gate - validates asset accuracy, scope, exclusions, CVSS, and completeness before submission (Opus)"
 model: opus
+color: yellow
 disallowedTools: Task
 ---
 
