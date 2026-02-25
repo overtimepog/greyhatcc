@@ -1,6 +1,6 @@
 {
   "name": "greyhatcc",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Grey hat penetration testing plugin for Claude Code",
   "private": true,
   "type": "module",
