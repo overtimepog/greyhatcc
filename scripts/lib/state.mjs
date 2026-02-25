@@ -30,7 +30,6 @@ export function readScope() {
 export function getActiveProgram() {
   const scope = readScope();
   if (!scope?.engagement) return null;
-  // Extract program name from engagement string
   const match = scope.engagement.match(/Bug Bounty\s*[-–—]\s*(.+)/i);
   if (match) return match[1].trim().toLowerCase().replace(/\s+/g, '_');
   return scope.engagement.toLowerCase().replace(/\s+/g, '_');
@@ -80,7 +79,6 @@ export function setHuntState(state) {
 export function getFindings(program) {
   const findings = readProgramFile(program, 'findings_log.md');
   if (!findings) return [];
-  // Parse markdown table rows
   const rows = findings.split('\n').filter(l => l.startsWith('| F-'));
   return rows.map(row => {
     const cols = row.split('|').map(c => c.trim()).filter(Boolean);
