@@ -142,6 +142,46 @@ Never stop at basic subdomain enum + port scan. Follow this 5-phase approach:
 
 ---
 
+## HackerOne Core Ineligible Findings — DO NOT REPORT
+
+**CRITICAL: These findings are universally ineligible on HackerOne. Do NOT test for, report, or waste time on any of these. If you encounter one during testing, skip it immediately unless it can be chained into a higher-impact vulnerability with proven security impact.**
+
+### Theoretical Vulnerabilities Requiring Unlikely User Interaction
+- Vulnerabilities affecting only unsupported or end-of-life browsers/operating systems
+- Broken link hijacking
+- Tabnabbing
+- Content spoofing and text injection issues
+- Attacks requiring physical device access (unless explicitly in scope)
+- Self-exploitation (self-XSS, self-DoS) — unless targeting different accounts via chain
+
+### Theoretical Vulnerabilities Without Real-World Security Impact
+- Clickjacking on pages lacking sensitive actions
+- CSRF on forms without sensitive actions (e.g., logout CSRF)
+- Permissive CORS configurations without demonstrated security impact
+- Software version disclosure / banner identification / descriptive error messages or headers
+- CSV injection
+- Open redirects — unless demonstrating additional security impact (e.g., OAuth token theft chain)
+
+### Optional Security Hardening / Missing Best Practices
+- SSL/TLS configuration issues (weak ciphers, protocol versions)
+- Lack of SSL pinning in mobile apps
+- Lack of jailbreak/root detection in mobile apps
+- Cookie handling deficiencies (missing HttpOnly/Secure flags)
+- Content-Security-Policy configuration opinions
+- Optional email security features (SPF/DKIM/DMARC misconfigurations)
+- Most rate limiting issues (unless chainable into account takeover or financial impact)
+
+### Hazardous Testing — NEVER Attempt Without Explicit Authorization
+- DoS/DDoS and excessive traffic/request generation
+- Any testing that affects system availability
+- Social engineering attacks (phishing, support request manipulation)
+- Noisy attacks affecting users/admins (notification spam, form spam)
+- Physical facility attacks
+
+> **Chain exception**: If an ineligible finding (e.g., open redirect, self-XSS, CORS) serves as a gadget in a chain that produces real security impact, document the full chain — not the individual low. The chain is reportable; the standalone finding is not.
+
+---
+
 ## Bug Bounty Methodology
 
 ### Program Selection

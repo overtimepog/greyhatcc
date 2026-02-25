@@ -62,10 +62,27 @@ Before ANY validation:
 - Not on the exclusion list
 - FAIL if: Asset not found in scope, or explicitly excluded
 
-### Gate 3: Exclusion Check
+### Gate 3: Exclusion Check + HackerOne Core Ineligible Filter
 - Vulnerability type is not on the program's exclusion list
 - If excluded type: check if report provides proof that overcomes the exclusion (e.g., demonstrating real impact for a typically-excluded finding)
-- FAIL if: Excluded vuln type without compelling override justification
+- **MANDATORY**: Auto-FAIL any finding that matches HackerOne Core Ineligible Findings:
+  - Unsupported/EOL browser-only vulns, broken link hijacking, tabnabbing, content spoofing, text injection
+  - Physical access attacks (unless explicitly in scope)
+  - Self-XSS or self-DoS (unless chained to target different accounts)
+  - Clickjacking on pages without sensitive actions
+  - CSRF on non-sensitive forms (e.g., logout CSRF)
+  - CORS misconfig without demonstrated security impact
+  - Version disclosure, banner identification, descriptive error messages/headers
+  - CSV injection
+  - Open redirects without demonstrated additional security impact
+  - SSL/TLS config issues, missing SSL pinning, missing jailbreak detection
+  - Missing cookie flags (HttpOnly/Secure) without demonstrated exploit
+  - CSP configuration opinions
+  - SPF/DKIM/DMARC misconfigurations
+  - Rate limiting issues (unless chained into ATO or financial impact)
+  - DoS/DDoS, availability-affecting tests, social engineering, notification/form spam
+- **Chain exception**: If the report demonstrates the ineligible finding as a gadget in a chain with proven real-world impact, PASS the gate — but the chain must be documented, not just the standalone finding
+- FAIL if: Excluded vuln type without compelling override justification, OR matches any core ineligible finding without a documented chain
 
 ### Gate 4: Duplicate Check
 - Finding not already in findings_log.md with same root cause
