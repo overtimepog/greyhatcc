@@ -36,16 +36,69 @@ Use a **multi-source approach** — no single source has everything:
 
 | Source | What It Gets | Reliability | Speed |
 |--------|-------------|-------------|-------|
-| **Playwright MCP** | Scope table, bounty table, exclusions, policy text, stats | HIGH (renders JS) | 10-20s |
-| **HackerOne API** | Structured scopes, program metadata (when API token configured) | HIGH (structured JSON) | 1-2s |
+| **HackerOne API MCP** | Program detail, structured scopes, bounty table, policy, hacktivity, stats | HIGHEST (official API, structured JSON) | 1-3s |
+| **Playwright MCP** | Visual scope table, bounty table, exclusions, policy text (for JS-rendered content not in API) | HIGH (renders JS) | 10-20s |
 | **Perplexity** | Program context, tech stack, previous disclosures, company intel | MEDIUM (AI search) | 3-5s |
+| **OpenRouter (minimax)** | Large-context analysis and synthesis of all gathered data | HIGH (reasoning) | 5-10s |
+| **Context7** | Live framework documentation for detected technologies — default configs, hidden endpoints | HIGH (current docs) | 2-4s |
 | **WebSearch** | Additional program intel, disclosed reports, writeups | MEDIUM | 2-3s |
 
 ### Priority Order
-1. **Always** use Playwright MCP — it's the most complete source
-2. **If configured** (`hackerone.apiToken` in config), also hit the HackerOne API for structured data
-3. **Always** use Perplexity for supplementary intel
-4. **Always** use WebSearch for disclosed reports and writeups
+1. **Always** use HackerOne API MCP tools first — fastest, most reliable, structured data
+2. **Always** use Playwright MCP for visual data and JS-rendered content the API misses
+3. **Always** use Perplexity for supplementary intel and prior disclosures
+4. **Always** use Context7 for tech stack documentation after fingerprinting
+5. **Always** use WebSearch for disclosed reports and writeups
+6. **Optionally** use OpenRouter (minimax/minimax-m2.5) for large-context synthesis of all data
+
+## Step 0: HackerOne API Research (PRIMARY — Fastest, Most Reliable)
+
+Use the HackerOne MCP server for instant structured data extraction. Run ALL of these in parallel:
+
+### 0a. Program Detail
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_program_detail
+Arguments: { handle: "<HANDLE>" }
+```
+Returns: Program name, description, state, response efficiency, stats, created_at, bounty info.
+
+### 0b. Structured Scopes
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_structured_scopes
+Arguments: { handle: "<HANDLE>", page_size: 100 }
+```
+Returns: All scope assets with type, identifier, bounty eligibility, max_severity, instructions.
+
+### 0c. Bounty Table
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_bounty_table
+Arguments: { handle: "<HANDLE>" }
+```
+Returns: Bounty ranges by severity (Critical/High/Medium/Low).
+
+### 0d. Program Policy
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_program_policy
+Arguments: { handle: "<HANDLE>" }
+```
+Returns: Full policy text including rules, exclusions, safe harbor, disclosure policy.
+
+### 0e. Recent Hacktivity
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_hacktivity
+Arguments: { handle: "<HANDLE>", page_size: 50 }
+```
+Returns: Recently disclosed/resolved reports — shows what vulns have been found before.
+
+### 0f. Auth Verification (First Run Only)
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_auth_status
+```
+Verify API access is working before relying on API data.
+
+**If API is not configured or fails:** Fall through to Step 1 (Playwright). The API data is preferred but not required — Playwright can extract the same data visually.
+
+**If API succeeds:** You can SKIP Step 1 (Playwright) for data extraction. Still use Playwright in Step 1b for screenshots only.
 
 ## Step 1: Playwright Browser Extraction (PRIMARY)
 
@@ -154,18 +207,11 @@ Script: |
   JSON.stringify({ tables: data, policy: policyText });
 ```
 
-## Step 2: HackerOne API (SECONDARY — when configured)
+## Step 2: HackerOne API Cross-Reference (SECONDARY — supplements Step 0)
 
-If `hackerone.apiToken` is set in greyhatcc config or `H1_API_TOKEN` env var exists, use the MCP tool:
+If Step 0 (API) was skipped or partially failed, and `H1_API_TOKEN` env var exists, retry individual API calls here to fill gaps in Playwright data. If Step 0 succeeded fully, skip this step.
 
-```
-Use: mcp__plugin_greyhatcc_sec__h1_program_fetch
-Arguments: { handle: "<HANDLE>" }
-```
-
-This returns structured JSON with scope, bounty ranges, and program metadata. Cross-reference with Playwright data to fill gaps.
-
-If the MCP tool is not available or fails, skip — Playwright data is sufficient.
+Cross-reference API data with Playwright data to ensure completeness — the API provides structured JSON while Playwright captures JS-rendered visual content.
 
 ## Step 3: Perplexity Deep Research (SUPPLEMENTARY)
 

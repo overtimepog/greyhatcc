@@ -121,6 +121,22 @@ Checks the finding against 24+ patterns of commonly rejected findings:
 
 If a finding matches an ALWAYS_REJECTED pattern, the recommendation is automatically DO NOT SUBMIT unless a chain is identified.
 
+### Layer 8: HackerOne API Dupe Check (Structured)
+
+Use the dedicated MCP tool for the most reliable API-based duplicate detection:
+
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_dupe_check
+Arguments: { handle: "<program>", vuln_type: "<type>", asset: "<asset>" }
+```
+
+This tool:
+1. Fetches live hacktivity from the H1 API
+2. Fuzzy-matches your finding against disclosed/resolved reports
+3. Returns a risk assessment: HIGH (>70%), MEDIUM (30-70%), LOW (<30%), CLEAR (no match)
+
+If the API is not configured, this layer is skipped silently.
+
 ---
 
 ## Decision Matrix

@@ -26,6 +26,25 @@ Before executing this skill:
 
 ## Scope Operations Detail
 
+### API-Based Scope Initialization
+
+If HackerOne API is configured, use structured scopes for the most accurate scope data:
+
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_structured_scopes
+Arguments: { handle: "<HANDLE>", page_size: 100 }
+```
+
+Each scope asset includes:
+- `asset_identifier` — the domain/URL/app name
+- `asset_type` — Domain, URL, API, Mobile, etc.
+- `eligible_for_bounty` — whether it pays bounties
+- `eligible_for_submission` — whether it accepts reports
+- `max_severity` — maximum severity accepted
+- `instruction` — testing instructions from the program
+
+Map these directly into scope.json entries for precise scope validation.
+
 ### Set from URL
 When `/greyhatcc:scope set <URL>` is used:
 1. Run program-research skill to extract scope via Playwright

@@ -21,6 +21,30 @@ Before executing this skill:
 
 Internal dedup (layers 1-5) catches YOUR duplicates. Hacktivity check catches OTHER RESEARCHERS' duplicates. If someone already reported the same bug 3 months ago and it was resolved, yours will be marked duplicate.
 
+## Method 0: HackerOne API MCP (Fastest, Most Accurate)
+
+Use the dedicated HackerOne MCP tools for the most reliable dupe detection:
+
+### 0a. Smart Dupe Check (Primary)
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_dupe_check
+Arguments: { handle: "<PROGRAM_HANDLE>", vuln_type: "<FINDING_TYPE>", asset: "<ASSET>" }
+```
+Returns: Dupe risk assessment (HIGH/MEDIUM/LOW/CLEAR) based on live hacktivity matching.
+
+### 0b. Full Hacktivity Scan (Comprehensive)
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_hacktivity
+Arguments: { handle: "<PROGRAM_HANDLE>", page_size: 100 }
+```
+Returns: All recent activities. Manually scan for matching:
+- Same vulnerability type on same/similar asset
+- Same CWE or weakness category
+- Similar report titles or descriptions
+
+### Fallback
+If HackerOne API is not configured or returns errors, fall through to Method 1 (Web Search).
+
 ## Method 1: Web Search (Fast, Always Available)
 
 Search for disclosed reports matching the finding:
@@ -154,19 +178,25 @@ After collecting search results, filter out false positives:
 
 ### API-Based Search (When H1 API Available)
 
-If `H1_API_TOKEN` is configured, query the HackerOne API directly:
+Use the dedicated HackerOne MCP server:
 
 ```
-Use: mcp__plugin_greyhatcc_sec__h1_program_fetch
-Arguments: { handle: "<program_handle>" }
+Use: mcp__plugin_greyhatcc_hackerone__h1_dupe_check
+Arguments: { handle: "<program_handle>", vuln_type: "<vulnerability_type>", asset: "<target_asset>" }
+```
 
-Then search the returned data for:
+This provides structured dupe risk assessment that is more reliable than scraping.
+
+For deeper analysis:
+```
+Use: mcp__plugin_greyhatcc_hackerone__h1_hacktivity
+Arguments: { handle: "<program_handle>", page_size: 100 }
+```
+
+Then search the returned activities for:
 - Disclosed reports matching the vulnerability type
 - Resolved reports on the same asset
 - Reporter activity patterns (frequent reporters on same asset)
-```
-
-This provides structured JSON data that is more reliable than scraping.
 
 ## Integration
 - Called by `/greyhatcc:dedup` as Layer 6
