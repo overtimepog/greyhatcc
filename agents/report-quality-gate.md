@@ -88,6 +88,7 @@ Before ANY validation:
 - Finding not already in findings_log.md with same root cause
 - Finding not already in submissions.json (previously submitted)
 - Check for same vulnerability type on same endpoint — even if parameters differ
+- API-Level Dupe Check: Use `mcp__plugin_greyhatcc_hackerone__h1_dupe_check` for live hacktivity matching
 - FAIL if: Duplicate found, or substantially similar finding exists
 
 ### Gate 5: Reproduction Steps

@@ -210,7 +210,23 @@ cp config/greyhatcc.example.json config/greyhatcc.json
 | `subdomain_enum` | Subdomain enumeration via crt.sh CT logs |
 | `port_check` | TCP port scan with banner grab |
 | `redirect_chain` | Redirect chain analysis with security issue detection |
-| `h1_program_fetch` | HackerOne program metadata and scope via REST API |
+
+### HackerOne MCP Server (12 tools)
+
+| Tool | Description |
+|------|-------------|
+| `h1_list_programs` | List accessible HackerOne programs |
+| `h1_program_detail` | Full program info (scope, bounty, policy, stats) |
+| `h1_structured_scopes` | Structured scope assets per program |
+| `h1_hacktivity` | Public activity feed (disclosed/resolved reports) |
+| `h1_earnings` | Hacker earnings history |
+| `h1_my_programs` | Private/invited programs |
+| `h1_search_programs` | Search program directory |
+| `h1_scope_summary` | Quick scope validation digest |
+| `h1_dupe_check` | Smart fuzzy duplicate detection with risk scoring |
+| `h1_bounty_table` | Bounty ranges by severity |
+| `h1_program_policy` | Full policy text and exclusions |
+| `h1_auth_status` | API authentication verification |
 
 ## Hooks (8)
 

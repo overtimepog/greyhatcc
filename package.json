@@ -1,6 +1,6 @@
 {
   "name": "greyhatcc",
-  "version": "5.0.1",
+  "version": "6.0.0",
   "description": "Grey hat penetration testing plugin for Claude Code",
   "private": true,
   "type": "module",
@@ -8,6 +8,7 @@
     "build": "node esbuild.config.mjs",
     "build:shodan": "node esbuild.config.mjs shodan",
     "build:sectools": "node esbuild.config.mjs security-tools",
+    "build:hackerone": "node esbuild.config.mjs hackerone",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
