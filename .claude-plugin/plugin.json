@@ -1,0 +1,27 @@
+{
+  "name": "greyhatcc",
+  "version": "3.0.0",
+  "description": "Autonomous offensive security toolkit for Claude Code - persistent hunt loops, self-correcting validation pipelines, parallel recon agents, exploit development, vulnerability chaining, and HackerOne-ready report generation",
+  "author": {
+    "name": "overtimedev"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "plugin",
+    "penetration-testing",
+    "bug-bounty",
+    "security",
+    "recon",
+    "exploitation",
+    "hunt-mode",
+    "autonomous-hunting",
+    "validation-pipeline",
+    "vulnerability-chaining"
+  ],
+  "skills": "./skills/",
+  "agents": "./agents/",
+  "commands": "./commands/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "greyhatcc",
+  "description": "Grey hat penetration testing toolkit for Claude Code - recon, exploitation, reporting, CVE research, and bug bounty workflows",
+  "owner": {
+    "name": "overtimedev"
+  },
+  "plugins": [
+    {
+      "name": "greyhatcc",
+      "description": "Grey hat penetration testing toolkit for Claude Code with 27+ skills, 2 MCP servers (Shodan 17 tools, security-tools 14 tools), and hooks for credential guarding, scope validation, and finding tracking. Covers the full offensive security lifecycle: recon, exploitation, CORS/WAF/tech analysis, port scanning, subdomain enum, reporting, CVE research, OSINT, and bug bounty workflows.",
+      "version": "2.0.0",
+      "author": {
+        "name": "overtimedev"
+      },
+      "source": "./",
+      "category": "security",
+      "tags": ["penetration-testing", "bug-bounty", "recon", "exploitation", "osint", "cve", "shodan", "security"]
+    }
+  ]
+}
