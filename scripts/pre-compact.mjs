@@ -17,16 +17,15 @@ async function main() {
 
   const parts = [];
 
-  // Persist hunt loop state
+  // Persist legacy hunt loop state (.greyhatcc/hunt-state.json)
   if (huntState.active) {
-    // Update the hunt state file with a compaction marker
     setHuntState({
       ...huntState,
       lastCompactedAt: new Date().toISOString(),
       compactionCount: (huntState.compactionCount || 0) + 1,
     });
 
-    parts.push(`[greyhatcc:hunt-loop] ACTIVE HUNT — THE HUNTER DOESN'T SLEEP.`);
+    parts.push(`[greyhatcc:hunt-loop] ACTIVE LEGACY HUNT — THE HUNTER DOESN'T SLEEP.`);
     parts.push(`Program: ${huntState.program || program || 'unknown'}`);
     parts.push(`Phase: ${huntState.phase || 'unknown'}`);
     parts.push(`Iteration: ${huntState.iteration || 0}`);
@@ -43,14 +42,37 @@ async function main() {
       parts.push(`Blockers: ${huntState.blockers.join(', ')}`);
     }
 
-    const completedPhases = huntState.completedPhases || [];
-    if (completedPhases.length > 0) {
-      parts.push(`Completed phases: ${completedPhases.join(', ')}`);
-    }
-
-    parts.push(`Verifications: ${huntState.verificationsPassed || 0}/${huntState.verificationsRequired || 3}`);
     parts.push('');
-    parts.push('RESUME INSTRUCTIONS: Continue the hunt loop from the current phase. Do NOT restart from Phase 0. Read .greyhatcc/hunt-state.json for full state.');
+    parts.push('RESUME: Continue the hunt loop from the current phase. Read .greyhatcc/hunt-state.json for full state.');
+  }
+
+  // Persist new v7 hunt-state/ directory (event-driven architecture)
+  const { existsSync: exists, readFileSync: readFile } = await import('fs');
+  const { join: joinPath } = await import('path');
+  const huntStateDir = joinPath(process.cwd(), 'hunt-state');
+  const v7HuntPath = joinPath(huntStateDir, 'hunt.json');
+  if (exists(v7HuntPath)) {
+    try {
+      const v7State = JSON.parse(readFile(v7HuntPath, 'utf-8'));
+      if (v7State.status === 'running') {
+        parts.push(`[greyhatcc:hunt-loop] ACTIVE v7 HUNT — EVENT-DRIVEN LOOP PRESERVING STATE.`);
+        parts.push(`Program: ${v7State.program}`);
+        parts.push(`Hunt ID: ${v7State.hunt_id}`);
+        parts.push(`Intel runs: ${v7State.intel_runs || 0}`);
+
+        const queuePath = joinPath(huntStateDir, 'queue.json');
+        if (exists(queuePath)) {
+          try {
+            const queue = JSON.parse(readFile(queuePath, 'utf-8'));
+            const queued = queue.filter(i => i.status === 'queued').length;
+            parts.push(`Queue: ${queued} items waiting`);
+          } catch {}
+        }
+
+        parts.push('');
+        parts.push('RESUME: Run /greyhatcc:hunt --resume. State is persisted in hunt-state/ directory. Do NOT restart from SEED.');
+      }
+    } catch {}
   }
 
   // Always persist scope context

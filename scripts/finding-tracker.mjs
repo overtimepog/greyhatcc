@@ -102,7 +102,7 @@ async function main() {
     lines.push(`[greyhatcc] INFO: ${info.map(f => f.type).join(', ')} — add to gadgets for chaining`);
   }
 
-  // Dedup hint against existing findings
+  // Dedup hint against existing findings (check both legacy and v7 hunt state)
   const program = getActiveProgram();
   if (program) {
     const existing = getFindings(program);
@@ -115,6 +115,25 @@ async function main() {
         break;
       }
     }
+  }
+
+  // Also check v7 hunt-state/findings.json if active
+  const { existsSync: exists, readFileSync: readFile } = await import('fs');
+  const { join: joinPath } = await import('path');
+  const huntFindingsPath = joinPath(process.cwd(), 'hunt-state', 'findings.json');
+  if (exists(huntFindingsPath)) {
+    try {
+      const huntFindings = JSON.parse(readFile(huntFindingsPath, 'utf-8'));
+      for (const f of found) {
+        const dupe = huntFindings.find(e =>
+          e.title && f.type && e.title.toLowerCase().includes(f.type.toLowerCase().slice(0, 15))
+        );
+        if (dupe) {
+          lines.push(`  >> POSSIBLE DUPE in hunt-state: "${dupe.title}" (${dupe.id}). Check hunt-state/findings.json.`);
+          break;
+        }
+      }
+    } catch {}
   }
 
   if (lines.length > 0) {

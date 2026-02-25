@@ -71,11 +71,37 @@ async function main() {
   const command = input?.tool_input?.command || '';
   if (!command) return;
 
-  const scopePath = join(process.cwd(), '.greyhatcc', 'scope.json');
-  if (!existsSync(scopePath)) return;
+  // Check v7 hunt-state scope first, then legacy .greyhatcc scope
+  const cwd = process.cwd();
+  const v7HuntPath = join(cwd, 'hunt-state', 'hunt.json');
+  const scopePath = join(cwd, '.greyhatcc', 'scope.json');
+
+  let scope = null;
+  if (existsSync(v7HuntPath)) {
+    try {
+      const huntState = JSON.parse(readFileSync(v7HuntPath, 'utf-8'));
+      if (huntState.scope) {
+        // Convert v7 scope format to legacy format for isInScope
+        scope = {
+          authorized: {
+            domains: huntState.scope.in_scope || [],
+            ips: [],
+          },
+          excluded: {
+            domains: huntState.scope.out_of_scope || [],
+          },
+        };
+      }
+    } catch {}
+  }
+  if (!scope && existsSync(scopePath)) {
+    try {
+      scope = JSON.parse(readFileSync(scopePath, 'utf-8'));
+    } catch {}
+  }
+  if (!scope) return;
 
   try {
-    const scope = JSON.parse(readFileSync(scopePath, 'utf-8'));
     const targets = extractTargets(command);
     const outOfScope = targets.filter(t => !isInScope(t, scope));
 
