@@ -1,6 +1,6 @@
 # greyhatcc
 
-Grey hat penetration testing toolkit for Claude Code. 35 skills, 30 commands, 20 agents, 2 MCP servers (Shodan 17 tools + security tools 16 tools), and 8 hooks for credential guarding, scope validation, finding tracking, and context persistence.
+Grey hat penetration testing toolkit for Claude Code. 33 skills, 28 commands, 20 agents, 2 MCP servers (Shodan 17 tools + security tools 16 tools), and 8 hooks for credential guarding, scope validation, finding tracking, and context persistence.
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ claude plugin install greyhatcc@greyhatcc
 ### Option B: From GitHub
 
 ```bash
-claude plugin marketplace add https://github.com/overtimedev/greyhatcc.git
+claude plugin marketplace add https://github.com/overtimepog/greyhatcc.git
 claude plugin install greyhatcc@greyhatcc
 ```
 
@@ -67,7 +67,7 @@ Copy and edit the example config:
 cp config/greyhatcc.example.json config/greyhatcc.json
 ```
 
-## Commands (30)
+## Commands (28)
 
 ### Recon & Enumeration
 
@@ -86,9 +86,7 @@ cp config/greyhatcc.example.json config/greyhatcc.json
 
 | Command | Aliases | Description |
 |---------|---------|-------------|
-| `/greyhatcc:hunt` | `h`, `autohunt` | Full autonomous bug bounty hunting |
-| `/greyhatcc:loop` | — | Persistent hunt loop until triple-verification passes |
-| `/greyhatcc:siege` | — | Full autonomous attack: expand, plan, attack, validate, report |
+| `/greyhatcc:hunt` | `h`, `autohunt`, `fullsend`, `siege`, `loop` | Ultra-autonomous bug bounty hunting — expand, plan, attack, validate, report with persistent loops, 5-gate validation, and triple-verification. Auto-activates with `hunt:` prefix. |
 | `/greyhatcc:webapp` | `web`, `owasp` | OWASP web application security tests |
 | `/greyhatcc:auth` | `jwt`, `oauth` | OAuth, JWT, OIDC, SAML testing |
 | `/greyhatcc:api` | `api-test`, `graphql` | API security testing (REST, GraphQL, gRPC) |
@@ -119,16 +117,14 @@ cp config/greyhatcc.example.json config/greyhatcc.json
 | `/greyhatcc:tested` | `coverage`, `gaps` | Track tested endpoints and vuln classes |
 | `/greyhatcc:doctor` | `doc`, `health` | Plugin diagnostics and health check |
 
-## Skills (35)
+## Skills (33)
 
 ### Offensive
 
 | Skill | Description |
 |-------|-------------|
 | `recon` | Multi-phase reconnaissance (ASN, DNS, cloud, code intel, OSINT) |
-| `hunt` | Automated vulnerability hunting |
-| `siege` | Full autonomous attack mode |
-| `hunt-loop` | Persistent hunt loop with triple-verification |
+| `hunt` | Ultra-autonomous bug bounty hunting (unified hunt + loop + siege) |
 | `webapp-testing` | Web application security testing (OWASP) |
 | `api-testing` | REST, GraphQL, gRPC API testing |
 | `oauth-jwt-testing` | OAuth, JWT, OIDC, SAML flow testing |
@@ -237,7 +233,7 @@ Tiered agent model for cost-efficient execution:
 |------|-------|--------|----------|
 | LOW (Haiku) | Fast, cheap | recon-specialist-low, osint-researcher-low, vuln-analyst-low, webapp-tester-low, exploit-developer-low, report-writer-low | Port scan parsing, CVE lookups, quick analysis |
 | MEDIUM (Sonnet) | Balanced | recon-specialist, osint-researcher, vuln-analyst, webapp-tester, exploit-developer, report-writer, network-analyst, scope-manager, bounty-hunter, proof-validator | Recon, webapp testing, report drafts |
-| HIGH (Opus) | Deep reasoning | recon-specialist-high, report-writer-high, hunt-loop-orchestrator, report-quality-gate | Exploit chains, deep analysis, orchestration |
+| HIGH (Opus) | Deep reasoning | recon-specialist-high, report-writer-high, bounty-hunter, hunt-loop-orchestrator, report-quality-gate | Exploit chains, deep analysis, hunt orchestration |
 
 ### Templates
 

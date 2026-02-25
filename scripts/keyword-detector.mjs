@@ -2,9 +2,12 @@ import { readStdin } from './lib/stdin.mjs';
 import { getHuntState, getActiveProgram } from './lib/state.mjs';
 
 /**
- * Enhanced Keyword Detector v2.0
+ * Enhanced Keyword Detector v3.0
  *
- * Improvements over v1:
+ * v3.0 changes:
+ * - Unified hunt/loop/siege into single HUNT mode with MAGIC KEYWORD auto-activation
+ * - "hunt:" prefix triggers immediate skill invocation (like OMC autopilot)
+ * - All hunt-related keywords route to unified greyhatcc:hunt skill
  * - 120+ keywords across 25 categories
  * - Compound keyword detection (multi-word intent matching)
  * - Priority-based matching (most specific wins)
@@ -14,12 +17,27 @@ import { getHuntState, getActiveProgram } from './lib/state.mjs';
  * - Hunt loop awareness (don't interrupt active loops)
  */
 
+// MAGIC KEYWORD: Creates forced skill invocation (like OMC autopilot)
+function createMagicKeyword(originalPrompt) {
+  return `[MAGIC KEYWORD: HUNT]
+
+You MUST invoke the skill using the Skill tool:
+
+Skill: greyhatcc:hunt
+
+User request:
+${originalPrompt}
+
+IMPORTANT: Invoke the skill IMMEDIATELY. Do not proceed without loading the skill instructions.`;
+}
+
 // Priority: higher = matched first. Most specific patterns first.
 const SKILL_PATTERNS = [
-  // --- HUNT LOOP / AUTOPILOT (highest priority) ---
-  { p: 100, match: /(?:hunt.*loop|keep.*hunting|don'?t.*stop|boulder|ralph|persistent.*hunt)/i, skill: 'greyhatcc:loop', hint: 'Start persistent hunt loop (will not stop until verified complete)' },
-  { p: 100, match: /(?:siege|siege.*mode|full.*auto|autonomous|take.*over|go.*wild|full.*send.*auto)/i, skill: 'greyhatcc:siege', hint: 'Full autonomous attack: expand > plan > attack > validate > report' },
-  { p: 95, match: /(?:full.*send|go.*ham|send.*it|unleash|all.*out)/i, skill: 'greyhatcc:hunt', hint: 'Full bug bounty hunt lifecycle' },
+  // --- HUNT MODE (highest priority, unified from hunt+loop+siege) ---
+  { p: 100, match: /^hunt:/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
+  { p: 100, match: /(?:hunt.*loop|keep.*hunting|don'?t.*stop|boulder|persistent.*hunt)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
+  { p: 100, match: /(?:siege|siege.*mode|full.*auto|autonomous.*hunt|take.*over|go.*wild|full.*send.*auto)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
+  { p: 95, match: /(?:full.*send|go.*ham|send.*it|unleash|all.*out)/i, skill: '__MAGIC_HUNT__', hint: 'MAGIC KEYWORD: Auto-activate hunt mode' },
 
   // --- VALIDATION / QUALITY GATES ---
   { p: 90, match: /(?:validate.*report|check.*report|report.*quality|review.*report|is.*report.*good)/i, skill: 'greyhatcc:validate', hint: 'Multi-gate report quality validation' },
@@ -89,17 +107,18 @@ const SKILL_PATTERNS = [
 async function main() {
   const input = await readStdin();
   const prompt = (input?.message || input?.content || '').toLowerCase();
+  const originalPrompt = input?.message || input?.content || '';
 
   // Don't match if user is already using a slash command
   if (prompt.startsWith('/')) return;
 
-  // Don't interrupt active hunt loops with suggestions
+  // Don't interrupt active hunts with suggestions
   const huntState = getHuntState();
   if (huntState.active && !prompt.includes('stop') && !prompt.includes('cancel') && !prompt.includes('pause')) {
     // Just remind about active hunt
     if (prompt.length > 5) {
       console.log(JSON.stringify({
-        'system-reminder': `[greyhatcc:hunt-loop] Active hunt in progress (Phase: ${huntState.phase}, Iteration: ${huntState.iteration}). The boulder keeps rolling. Use "stop hunt" or /greyhatcc:cancel to pause.`
+        'system-reminder': `[greyhatcc:hunt] Active hunt in progress (Phase: ${huntState.phase}, Iteration: ${huntState.iteration}). The hunter doesn't sleep. Use "stop hunt" or /greyhatcc:cancel to pause.`
       }));
     }
     return;
@@ -119,6 +138,15 @@ async function main() {
   }
 
   if (matches.length === 0) return;
+
+  // Check if top match is a MAGIC KEYWORD hunt activation
+  if (matches[0].skill === '__MAGIC_HUNT__') {
+    // Force immediate skill invocation via MAGIC KEYWORD pattern (like OMC autopilot)
+    console.log(JSON.stringify({
+      'system-reminder': createMagicKeyword(originalPrompt)
+    }));
+    return;
+  }
 
   // Take top 3 matches max
   const top = matches.slice(0, 3);
