@@ -20,7 +20,7 @@ claude plugin marketplace add /path/to/greyhatcc
 claude plugin install greyhatcc@greyhatcc
 ```
 
-### Option C: From GitHub (once published)
+### Option C: From GitHub
 
 ```bash
 claude plugin marketplace add https://github.com/overtimedev/greyhatcc.git
