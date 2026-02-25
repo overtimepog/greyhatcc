@@ -69,6 +69,9 @@ export function loadConfig(): GreyhatConfig {
   if (process.env.H1_API_TOKEN) {
     config.hackerone.apiToken = process.env.H1_API_TOKEN;
   }
+  if (process.env.H1_USERNAME) {
+    config.hackerone.username = process.env.H1_USERNAME;
+  }
 
   return config;
 }

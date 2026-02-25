@@ -14,6 +14,10 @@ const servers = {
     entryPoint: resolve(__dirname, 'src/servers/security-tools/index.ts'),
     outfile: resolve(__dirname, 'bridge/security-tools-server.cjs'),
   },
+  hackerone: {
+    entryPoint: resolve(__dirname, 'src/servers/hackerone/index.ts'),
+    outfile: resolve(__dirname, 'bridge/hackerone-server.cjs'),
+  },
 };
 
 const toBuild = target ? { [target]: servers[target] } : servers;
