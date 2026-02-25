@@ -1,6 +1,6 @@
 ---
 name: hunt
-description: "Ultra-autonomous bug bounty hunting - the offensive security autopilot"
+description: "Autonomous bug bounty hunting with event-driven priority-queue hunt loop"
 aliases:
   - h
   - autohunt
@@ -8,33 +8,49 @@ aliases:
   - siege
   - loop
 allowed-tools: Task, Bash, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch
-argument-hint: "<program URL or handle>"
+argument-hint: "<program URL or handle> [--resume] [--dry-run] [--focus <type>] [--budget <n>] [--time <n>]"
 skill: greyhatcc:hunt
 ---
 
-# HUNT MODE
+# HUNT MODE — Event-Driven Hunt Loop
 
 Invoke the `greyhatcc:hunt` skill for target: {{ARGUMENTS}}
 
-This is the ultimate autonomous bug bounty pipeline. It will:
-1. **EXPAND** - Research program + map full attack surface with parallel agents
-2. **PLAN** - Prioritize targets by ROI + red-team review for blind spots
-3. **ATTACK** - Persistent hunt loop, target-by-target, every vuln class
-4. **VALIDATE** - Chain analysis + 5-gate quality pipeline
-5. **REPORT** - H1-ready reports for validated findings only
+This is the **event-driven priority-queue hunt engine** — an iterative, adaptive, signal-driven
+bug bounty pipeline that replaces the old 5-phase waterfall.
 
-Then **triple-verification** before declaring complete. The hunter doesn't sleep.
+## How It Works
 
-Hunt mode is the full-send autonomous offensive pipeline. It combines every other command
-into a continuous loop:
-- Program research and scope extraction
-- Multi-phase recon (subdomains, ports, JS analysis, cloud, OSINT)
-- Gadget inventory construction from every low-severity finding
-- Systematic webapp and API testing across every in-scope asset
-- Automatic chain analysis: does bug A feed into bug B?
-- Dedup checks against internal log, hacktivity, and common rejection patterns
-- H1-ready report generation only for validated, unique, chain-maximized findings
+1. **SEED** — Research program, pull scope from H1, create initial work items
+2. **LOOP** — Pop highest-priority item, dispatch to module, process results, enqueue follow-ups
+3. **INTEL** — Every 5 items: signal amplification, chain detection, coverage gaps, reprioritization
+4. **FINALIZE** — Validate all findings, generate H1-ready reports
 
-The loop continues until every in-scope asset has been tested against every relevant
-vulnerability class, or until explicitly stopped. Coverage gaps are tracked and
-re-attacked in subsequent iterations.
+## Key Features
+
+- **Priority queue** determines execution order — not fixed phases
+- **Six capability modules**: recon, test, exploit, validate, report, intel
+- **Dynamic model routing**: haiku for recon, sonnet for testing, opus for exploitation
+- **Persistent state**: hunts survive interruptions, compaction, session restarts
+- **Signal amplification**: weak signals automatically spawn targeted investigations
+- **Gadget chaining**: provides/requires graph for automatic chain discovery
+
+## Options
+
+- `--resume` — Resume a previous hunt from hunt-state/ directory
+- `--dry-run` — Seed the queue and show planned work items without executing
+- `--focus <type>` — Prioritize a specific vuln class (ssrf, idor, xss, etc.)
+- `--budget <n>` — Maximum token budget
+- `--time <n>` — Maximum time in minutes
+- `--no-intel` — Disable periodic intel module runs
+
+## State
+
+All state persists in `hunt-state/` directory:
+- `queue.json` — Priority queue of work items
+- `findings.json` — All discovered findings
+- `surfaces.json` — Attack surface map
+- `gadgets.json` — Exploitation primitives for chaining
+- `signals.json` — Weak signals worth investigating
+- `coverage.json` — Endpoint × vuln-class coverage tracker
+- `reports/` — Generated H1-ready report files
