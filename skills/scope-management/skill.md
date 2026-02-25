@@ -7,13 +7,72 @@ description: Define, validate, and manage authorized target scope with asset tra
 
 ## Usage
 - `/greyhatcc:scope init <engagement_name>` - Create new scope
+- `/greyhatcc:scope set <HackerOne_URL>` - Auto-extract scope from program page via Playwright
 - `/greyhatcc:scope add <domain/IP>` - Add authorized target
+- `/greyhatcc:scope remove <domain/IP>` - Remove target from scope
 - `/greyhatcc:scope exclude <domain/IP>` - Add domain exclusion
 - `/greyhatcc:scope exclude-vuln <vuln_type>` - Add vulnerability type exclusion
 - `/greyhatcc:scope check <target>` - Validate target against scope
 - `/greyhatcc:scope check-vuln <vuln_type>` - Check if vuln type is excluded
 - `/greyhatcc:scope show` - Display current scope with all rules
 - `/greyhatcc:scope import <scope.md>` - Import from program scope.md file
+
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+## Scope Operations Detail
+
+### Set from URL
+When `/greyhatcc:scope set <URL>` is used:
+1. Run program-research skill to extract scope via Playwright
+2. Parse the extracted scope.md
+3. Auto-populate scope.json from extracted data
+4. Display summary for user confirmation
+
+### Add / Remove Targets
+```
+/greyhatcc:scope add api.target.com
+→ Adds to authorized.domains AND authorized.assets with type detection
+
+/greyhatcc:scope remove staging.target.com
+→ Moves from authorized to excluded.domains
+→ Warns if any findings exist for this target
+```
+
+### Exclusion Handling
+Exclusions have two categories:
+1. **Domain exclusions** — targets you cannot test at all
+2. **Vuln type exclusions** — vulnerability types that will be rejected
+
+When checking a finding:
+```
+1. Is the asset in authorized? → YES: proceed / NO: STOP
+2. Is the asset in excluded? → YES: STOP / NO: proceed
+3. Is the vuln type in excluded.vulnTypes? → YES: check for override / NO: proceed
+4. Override check: Does the finding prove the exclusion doesn't apply?
+   → YES: proceed with explicit justification in report
+   → NO: add to gadgets as chain-only, DO NOT report standalone
+```
+
+### Testing Hours
+Some programs restrict testing to specific hours:
+```json
+"rules": {
+  "testingHours": "24/7" | "business_hours_only" | "custom",
+  "testingTimezone": "UTC",
+  "testingSchedule": {
+    "start": "09:00",
+    "end": "17:00",
+    "days": ["Mon", "Tue", "Wed", "Thu", "Fri"]
+  }
+}
+```
+
+If restricted, the scope-validator hook warns when Bash commands are run outside allowed hours.
 
 ## Scope File (Enhanced v2)
 Location: `.greyhatcc/scope.json`
@@ -132,3 +191,10 @@ When `/greyhatcc:scope import` is used, parse scope.md and extract:
 - **report-validator hook**: Checks report assets against authorized.assets
 - **finding-tracker hook**: Checks detected findings against excluded.vulnTypes
 - **validate-report skill**: Comprehensive 8-gate validation uses all scope fields
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

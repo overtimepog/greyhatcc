@@ -10,8 +10,14 @@ You are executing the greyhatcc reconnaissance skill. Perform a comprehensive mu
 ## Usage
 `/greyhatcc:recon <target>` where target is a domain, IP, or URL.
 
-## MANDATORY: Load Context First
-Before executing, follow the context-loader protocol:
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+Also follow the context-loader protocol:
 1. Load guidelines: CLAUDE.md (5-phase recon methodology, infrastructure mapping, code intelligence)
 2. Load program guidelines: scope.md → verify target is in scope, note any testing restrictions
 3. Load engagement: findings_log.md (avoid re-discovering known findings), tested.json
@@ -58,13 +64,34 @@ Save all outputs to `<target_dir>/recon/`:
 - `shodan_<ip>.md` - Shodan intelligence
 - `recon_summary.md` - Executive summary with attack surface priorities
 
-## Parallel Execution
-Launch multiple recon tasks in parallel using Task tool:
-- Subdomain enum (recon-specialist-low)
-- DNS/WHOIS (recon-specialist-low)
-- Shodan lookup (recon-specialist-low)
-- Tech fingerprint (recon-specialist-low)
-Then aggregate results with recon-specialist.
+## Parallel Execution — Agent Dispatch Tables
+
+### Phase 1 Parallel Dispatch (Core Recon)
+| Agent | Task | Tier |
+|-------|------|------|
+| `recon-specialist-low` | CT logs + subdomain enumeration | Haiku |
+| `recon-specialist-low` | DNS/WHOIS + DNS records | Haiku |
+| `recon-specialist-low` | Shodan host lookup + SSL cert search | Haiku |
+| `recon-specialist-low` | Tech fingerprinting + header analysis | Haiku |
+| `recon-specialist` | WAF/CDN detection + bypass assessment | Sonnet |
+
+### Phase 2 Parallel Dispatch (Deep Recon)
+| Agent | Task | Tier |
+|-------|------|------|
+| `js-analyst` | Download and analyze all JS bundles — extract endpoints, secrets, source maps | Sonnet |
+| `js-analyst-low` | Quick endpoint extraction from main page JS | Haiku |
+| `cloud-recon` | S3/GCS/Azure bucket enumeration, Firebase discovery, CDN origin finding | Sonnet |
+| `cloud-recon-low` | Quick bucket name guessing from domain patterns | Haiku |
+| `subdomain-takeover` | BadDNS + dangling CNAME/NS/MX detection on all discovered subdomains | Sonnet |
+| `network-analyst-low` | Port scanning + service enumeration on discovered IPs | Haiku |
+| `osint-researcher-high` | Deep OSINT — employee enumeration, acquisition research, job posting analysis | Opus |
+
+### Phase 3 Aggregation
+After all agents complete, aggregate results with `recon-specialist` (Sonnet):
+- Merge all subdomain lists, deduplicate
+- Build unified tech stack profile
+- Cross-reference Shodan data with discovered services
+- Populate `attack_plan.md` with prioritized targets
 
 ## Post-Recon Actions
 After recon completes:
@@ -72,3 +99,10 @@ After recon completes:
 2. **Update gadgets.json** — add informational findings with chaining potential (e.g., internal IPs in DNS = SSRF targets, CSP bucket names = takeover candidates)
 3. **Trigger dependent skills** — if JS bundles found, suggest `/greyhatcc:js`; if cloud assets found, suggest `/greyhatcc:cloud`; if dangling subdomains found, suggest `/greyhatcc:takeover`
 4. **Feed into attack plan** — update attack_plan.md with prioritized targets based on recon findings
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

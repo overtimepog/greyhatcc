@@ -27,9 +27,14 @@ Transform this target into validated security findings through 5 phases:
 
 Then **triple-verification** before declaring complete.
 
-## MANDATORY: Context Loading
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
-Before ANY phase, load engagement state:
+Before ANY phase, also load engagement state:
 1. Load CLAUDE.md for methodology (5-phase recon, attack vectors, chaining, WAF bypass)
 2. Load MEMORY.md for target-specific notes from previous sessions
 3. If resuming: load `.greyhatcc/hunt-state.json` and resume from last phase
@@ -91,10 +96,14 @@ Dispatch ALL of these agents simultaneously:
 |-------|------|------|
 | `recon-specialist` | Full 5-phase recon: ASN/BGP, passive DNS, cloud, WAF fingerprint, Shodan | Sonnet |
 | `osint-researcher-low` | Company OSINT: employees, acquisitions, job postings, tech stack | Haiku |
+| `osint-researcher-high` | Deep OSINT: breach intel, employee enumeration, detailed org profiling | Opus |
 | `recon-specialist-low` | CT logs, Shodan intelligence, service banners | Haiku |
-| JS analysis agent | Download all JS bundles, extract endpoints/secrets/source maps | Sonnet |
-| Cloud recon agent | S3/GCP/Azure bucket enumeration, cloud misconfig | Haiku |
-| Subdomain takeover agent | BadDNS on all discovered subdomains, dangling CNAME/NS/MX | Haiku |
+| `js-analyst` | Download all JS bundles, extract endpoints/secrets/source maps | Sonnet |
+| `js-analyst-low` | Quick endpoint extraction from main page JS only | Haiku |
+| `cloud-recon` | S3/GCP/Azure bucket enumeration, Firebase, CDN origin discovery | Sonnet |
+| `cloud-recon-low` | Quick bucket name guessing from domain patterns | Haiku |
+| `subdomain-takeover` | BadDNS on all discovered subdomains, dangling CNAME/NS/MX | Sonnet |
+| `network-analyst-low` | Port scanning + service enumeration on discovered IPs | Haiku |
 
 All agents write to the program's `recon/` directory. **No testing yet — recon only.**
 
@@ -166,11 +175,22 @@ For EACH target in `attack_plan.md` priority order:
 
 1. **Check tested.json** — skip if fully tested for all vuln classes
 2. **Run appropriate testing skills** based on tech stack:
-   - `/greyhatcc:auth` — OAuth, JWT, OIDC, SAML, Cognito
-   - `/greyhatcc:api` — REST/GraphQL endpoint testing
-   - `/greyhatcc:webapp` — OWASP Top 10 systematic testing
-   - `/greyhatcc:js` — JS bundle analysis for secrets/endpoints
-   - `/greyhatcc:cloud` — Cloud misconfig hunting
+
+| Skill / Agent | When to Dispatch | Tier |
+|--------------|-----------------|------|
+| `/greyhatcc:auth` → `auth-tester` | OAuth, JWT, OIDC, SAML, Cognito endpoints detected | Sonnet |
+| `/greyhatcc:auth` → `auth-tester-low` | Quick JWT decode, basic auth header checks | Haiku |
+| `/greyhatcc:api` → `api-tester` | REST/GraphQL endpoints found in recon | Sonnet |
+| `/greyhatcc:api` → `api-tester-low` | Quick API endpoint enumeration, schema fetch | Haiku |
+| `/greyhatcc:webapp` → `webapp-tester` | Full OWASP Top 10 + advanced testing | Opus |
+| `/greyhatcc:webapp` → `webapp-tester-low` | Quick header checks, cookie analysis | Haiku |
+| `/greyhatcc:js` → `js-analyst` | Full JS bundle analysis for secrets/endpoints/source maps | Sonnet |
+| `/greyhatcc:js` → `js-analyst-low` | Quick endpoint extraction from page source | Haiku |
+| `/greyhatcc:cloud` → `cloud-recon` | S3/GCS/Azure/Firebase enumeration, metadata SSRF | Sonnet |
+| `/greyhatcc:cloud` → `cloud-recon-low` | Quick bucket name guessing | Haiku |
+| `/greyhatcc:takeover` → `subdomain-takeover` | Dangling CNAME/NS/MX detection and validation | Sonnet |
+| `/greyhatcc:osint` → `osint-researcher-high` | Deep OSINT when more context needed | Opus |
+| Port scanning → `network-analyst-low` | Service enumeration on non-standard ports | Haiku |
 3. **Log findings immediately** to `findings_log.md`
 4. **Update gadgets.json** with provides/requires tags for chaining
 5. **Update tested.json** with asset + vuln class tested
@@ -419,3 +439,10 @@ User says "resume", "continue", or starts a new session with active hunt-state.j
 - **Business logic first**: Automation handles CVEs, you handle logic
 - **Depth over breadth**: Own each target before moving to the next
 - **Token-efficient**: Smart model routing — Haiku for quick checks, Opus only when needed
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

@@ -13,6 +13,43 @@ description: Track what endpoints and vulnerability classes have been tested to 
 
 **This skill is also called automatically by other testing skills.**
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+---
+
+## Coverage Matrix Concept
+
+The tested-tracker maintains a coverage matrix: **endpoints x vulnerability classes**. Complete coverage means every discovered endpoint has been tested for every applicable vulnerability class.
+
+### Completion Percentage Tracking
+```
+Coverage = (tested combinations) / (endpoints_discovered * avg_vuln_classes_per_endpoint) * 100
+
+Example:
+- 45 endpoints discovered
+- Average 8 vuln classes applicable per endpoint
+- 120 test entries in tested.json
+- Coverage = 120 / (45 * 8) = 33%
+```
+
+### Vuln Class Taxonomy (Standard Classes)
+
+| Category | Vuln Classes | Applicable To |
+|----------|-------------|---------------|
+| **Injection** | `sqli`, `xss-reflected`, `xss-stored`, `xss-dom`, `command-injection`, `ssti`, `nosql-injection`, `ldap-injection` | All input-accepting endpoints |
+| **Auth/Authz** | `auth-bypass`, `privilege-escalation`, `jwt-manipulation`, `oauth-redirect`, `oauth-state`, `oauth-scope`, `saml-bypass` | Auth-related endpoints |
+| **Access Control** | `idor`, `forced-browsing`, `method-override` | Resource-specific endpoints |
+| **Config** | `cors-misconfiguration`, `actuator-exposure`, `api-exposure`, `source-map-disclosure`, `verbose-errors`, `information-disclosure` | All web endpoints |
+| **Server-Side** | `ssrf`, `xxe`, `deserialization`, `path-traversal`, `lfi`, `rfi` | Endpoints accepting URLs/XML/serialized data |
+| **Client-Side** | `csrf`, `open-redirect`, `header-injection`, `cache-poisoning`, `websocket-injection` | State-changing endpoints |
+| **API-Specific** | `graphql-introspection`, `graphql-batching`, `graphql-injection`, `rate-limit-bypass` | GraphQL/API endpoints |
+| **Infrastructure** | `subdomain-takeover`, `bucket-misconfiguration`, `cloud-metadata`, `request-smuggling` | Domain/infrastructure level |
+
 ---
 
 ## Schema
@@ -160,3 +197,10 @@ Before testing endpoint X for vuln_class Y:
 ## Delegation
 - This skill runs locally (file reads/writes only, no agent needed)
 - Gap analysis with prioritization → `vuln-analyst-low` (sonnet)
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

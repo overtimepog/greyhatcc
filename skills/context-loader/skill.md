@@ -197,6 +197,135 @@ Before any testing action or report submission, verify ALL of these:
 
 **If any check fails, STOP and inform the user. Don't auto-submit.**
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+## File-by-File Loading Protocol
+
+Load files in this exact order. Each step depends on the previous:
+
+### Step 1: Root Configuration (BLOCKING — must succeed)
+```
+File: CLAUDE.md
+Action: READ
+Required: YES (always exists in workspace root)
+Extract: Core principles, methodology, attack vectors, WAF bypass, report format
+On Missing: FATAL — this file must exist. Alert user.
+```
+
+### Step 2: Engagement Identification (BLOCKING — must succeed)
+```
+File: bug_bounty/<program>_bug_bounty/scope.md
+Action: READ
+Required: YES for any testing activity
+Extract: Assets, exclusions, rules, bounty table, platform info
+On Missing: WARN user → suggest /greyhatcc:program or /greyhatcc:scope first → STOP testing
+On Partial: If scope.md exists but has empty sections, WARN about incomplete setup
+```
+
+### Step 3: Machine-Readable Scope (NON-BLOCKING)
+```
+File: .greyhatcc/scope.json
+Action: READ
+Required: NO (scope.md is authoritative, scope.json is for automation)
+Extract: authorized domains/IPs, excluded vulnTypes, rules, bountyTable
+On Missing: WARN → suggest /greyhatcc:scope import → continue with scope.md data
+```
+
+### Step 4: Engagement State Files (CREATE IF MISSING)
+```
+File: bug_bounty/<program>_bug_bounty/findings_log.md
+Action: READ or CREATE
+Required: YES
+On Missing: CREATE with template:
+  # Findings Log: <Program Name>
+  | # | Date | Asset | Title | Severity | Status | Report |
+  |---|------|-------|-------|----------|--------|--------|
+
+File: bug_bounty/<program>_bug_bounty/gadgets.json
+Action: READ or CREATE
+Required: YES
+On Missing: CREATE with: {"program": "<program>", "last_updated": "<today>", "gadgets": [], "chains": []}
+
+File: bug_bounty/<program>_bug_bounty/tested.json
+Action: READ or CREATE
+Required: YES
+On Missing: CREATE with: {"program": "<program>", "last_updated": "<today>", "tested": [], "coverage": {}}
+
+File: bug_bounty/<program>_bug_bounty/submissions.json
+Action: READ or CREATE
+Required: YES
+On Missing: CREATE with: {"submissions": []}
+```
+
+### Step 5: Hunt State (NON-BLOCKING)
+```
+File: .greyhatcc/hunt-state.json
+Action: READ
+Required: NO (only exists during active hunts)
+Extract: active phase, current target, pending findings, blockers
+On Missing: Not in hunt mode — proceed normally
+On Found: Resume from last phase, check lastActivity timestamp
+```
+
+### Step 6: Phase-Specific Context (CONDITIONAL)
+```
+File: bug_bounty/<program>_bug_bounty/recon/*
+Action: READ (if skill requires recon data)
+Required: CONDITIONAL — required by testing/exploitation skills
+On Missing: WARN that recon hasn't been done → suggest Phase 1 first
+Files to check:
+  - recon/subdomains.txt (subdomain list)
+  - recon/tech_stack.md (technology fingerprint)
+  - recon/dns_records.md (DNS data)
+  - recon/shodan_*.md (Shodan intelligence)
+  - recon/js/ (JS analysis output)
+  - recon/api/ (API discovery output)
+  - recon/cloud/ (Cloud recon output)
+  - recon/waf_detection.md (WAF/CDN detection)
+
+File: bug_bounty/<program>_bug_bounty/reports/*.md
+Action: READ filenames + titles (not full content unless needed)
+Required: CONDITIONAL — required by report-writing/dedup skills
+On Missing: No reports written yet — this is fine for early phases
+
+File: bug_bounty/<program>_bug_bounty/evidence/*
+Action: READ directory listing
+Required: CONDITIONAL — required by h1-report and report-writing
+On Missing: No evidence captured yet
+
+File: bug_bounty/<program>_bug_bounty/attack_plan.md
+Action: READ
+Required: CONDITIONAL — required by hunt and bug-bounty-workflow
+On Missing: WARN → suggest creating one after recon
+```
+
+### Step 7: Memory Context (NON-BLOCKING)
+```
+File: ~/.claude/projects/-Users-overtime-pentest/memory/MEMORY.md
+Action: READ + search for program name
+Required: NO
+Extract: Target-specific learnings from previous sessions
+On Missing: No persistent memory — first session for this target
+```
+
+### Handling Partial State
+
+When resuming an engagement that was partially completed:
+
+| State Indicator | Meaning | Action |
+|----------------|---------|--------|
+| scope.md exists, no recon/ | Program researched, recon not started | Start at Phase 1 recon |
+| recon/ exists, empty tested.json | Recon done, testing not started | Start at Phase 2 testing |
+| tested.json has entries, empty findings_log | Testing started, no vulns found yet | Continue testing |
+| findings_log has entries, no reports/ | Vulns found, reports not written | Start reporting phase |
+| reports/ has files, empty submissions.json | Reports written, not submitted | Review and submit |
+| hunt-state.json exists, active=true | Hunt was interrupted | Resume from hunt-state phase |
+
 ## File Not Found Behavior
 
 If a context file doesn't exist:
@@ -239,3 +368,10 @@ Before executing this skill, follow the context-loader protocol:
 | No tested.json | Agent re-tests endpoints already covered, wastes time |
 | No memory | Agent repeats mistakes from previous sessions (e.g., using curl against Akamai) |
 | No bounty table | Agent wastes time on a $25 low when there's a $1500 critical available |
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

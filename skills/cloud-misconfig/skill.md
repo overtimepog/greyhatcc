@@ -221,8 +221,22 @@ bug_bounty/<program>_bug_bounty/recon/cloud/
 - SSRF → cloud metadata → IAM credentials → full cloud account compromise
 - Dangling CNAME → cloud service takeover → trusted origin → CORS bypass
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
 ## Delegation
 - Full cloud audit → `recon-specialist-high` (opus) with this skill
 - Quick bucket checks → `recon-specialist-low` (haiku)
 - Shodan/cert searches → `recon-specialist` (sonnet)
 - SSRF chain exploitation → `exploit-developer` (opus)
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

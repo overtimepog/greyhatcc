@@ -11,6 +11,13 @@ Quick-access reference library for bug bounty hunting. Use these when researchin
 - `/greyhatcc:guides` — Show full reference library
 - `/greyhatcc:guides <topic>` — Show guides for a specific topic (e.g., "graphql", "oauth", "xss")
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
 ## Methodology & Workflow Guides
 
 | Resource | URL | Focus |
@@ -156,6 +163,13 @@ Use: mcp__Context7__query-docs
 ### Why Context7 Matters for Bug Bounty
 
 Static cheatsheets show attack patterns. Context7 shows **what the framework does by default** — the gap between default behavior and secure configuration is where bugs live. If the docs say "CORS allows all origins by default" and the target uses that framework, you have a high-confidence test vector.
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp
 
 ## How to Use During an Engagement
 

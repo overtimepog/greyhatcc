@@ -209,8 +209,22 @@ bug_bounty/<program>_bug_bounty/recon/api/
 3. Update tested.json with endpoints tested and vuln classes checked
 4. If HIGH/CRITICAL finding → generate h1-report immediately
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
 ## Delegation
 - Full API testing → `webapp-tester` (opus) with this skill as instruction
 - Quick header/auth checks → `webapp-tester-low` (sonnet)
 - GraphQL deep dive → `webapp-tester` (opus) with GraphQL section focus
 - Exploit development from API finding → `exploit-developer` (opus)
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

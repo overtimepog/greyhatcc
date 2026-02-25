@@ -8,8 +8,14 @@ description: End-to-end bug bounty workflow from program research through Hacker
 ## Usage
 `/greyhatcc:bounty <program_name or HackerOne URL>`
 
-## MANDATORY: Load Context First
-Before executing, follow the context-loader protocol:
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+Also follow the context-loader protocol:
 1. Load guidelines: CLAUDE.md (full bug bounty methodology section)
 2. If resuming an existing engagement: load scope.md, findings_log.md, gadgets.json, tested.json, attack_plan.md
 3. Load memory: Check MEMORY.md for target-specific notes from previous sessions
@@ -65,8 +71,89 @@ Delegate to webapp-tester agent for systematic testing. **Pass full context** (s
 - Combine related low-severity findings into one medium report
 - **Update `submissions.json`** when reports are submitted to HackerOne
 
+## Workflow Decision Points
+
+### Decision: When to Stop Recon and Start Testing
+```
+STOP recon and START testing when:
+- All in-scope domains have been enumerated and resolved
+- Tech stack identified for all primary assets
+- JS bundles analyzed for at least the top 3 assets
+- WAF/CDN identified for all web assets
+- attack_plan.md has been written with prioritized targets
+- 60-70% of allocated time has been spent on recon
+```
+
+### Decision: When to Report vs Chain
+```
+REPORT immediately if:
+- Finding is HIGH or CRITICAL standalone
+- Finding has working PoC with clear impact
+- Finding is not on the exclusion list
+
+CHAIN FIRST if:
+- Finding is LOW or MEDIUM standalone
+- Finding is on the exclusion list but has chain potential
+- gadgets.json has a complementary gadget (provides/requires match)
+- Classic chain pattern applies (self-XSS+CSRF, redirect+OAuth, SSRF+metadata)
+
+DO NOT REPORT if:
+- Finding is on the ALWAYS_REJECTED dupe list
+- Finding cannot be chained
+- Finding has no working PoC
+- Finding is a duplicate (dedup check fails)
+```
+
+### Decision: When to Move to Next Target
+```
+MOVE to next target when:
+- All vuln classes from OWASP Top 10 tested
+- All tech-stack-specific tests run (e.g., GraphQL tests for GraphQL endpoints)
+- tested.json shows full coverage for this asset
+- No more untested endpoints from recon data
+- Diminishing returns: 3+ consecutive tests with no findings
+```
+
+## Program Selection Criteria (ROI Calculation)
+
+When choosing between multiple programs:
+
+```
+ROI Score = (max_bounty * asset_density * tech_complexity) / (competition * program_age)
+
+Factors:
+- max_bounty: Critical tier maximum ($)
+- asset_density: Number of in-scope assets (more = more surface area)
+- tech_complexity: Score 1-5 based on tech stack complexity
+  * 5: GraphQL + OAuth + microservices + mobile + cloud
+  * 4: REST API + JWT + cloud services
+  * 3: Standard web app + API
+  * 2: Simple web app, minimal API
+  * 1: Static site, minimal attack surface
+- competition: Estimated researcher count (from hacktivity volume)
+  * New program (< 4 weeks): competition = 1 (LOW — best ROI)
+  * Active program (4-12 weeks): competition = 2
+  * Mature program (> 12 weeks): competition = 3
+- program_age: Weeks since launch (newer = more low-hanging fruit)
+```
+
+### High-ROI Program Indicators
+- New program (first 2-4 weeks) — highest ROI window
+- Wildcard scope (*.domain.com) — largest attack surface
+- High bounty ceiling ($10k+ critical) — worth the investment
+- Complex tech stack (GraphQL, OAuth, microservices) — more bug classes
+- Recent acquisition — acquired assets often have weakest security
+- Low hacktivity volume — less competition
+
 ## Key Principles
 - Validate every finding with deterministic proof before reporting
 - 60-70% effort on recon before touching endpoints
 - Business logic first: automation handles CVEs, we handle logic
 - Chain everything: never report a low alone when it can be chained
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

@@ -8,8 +8,14 @@ description: Automated subdomain takeover detection - dangling CNAME/NS/MX ident
 ## Usage
 `/greyhatcc:takeover <domain>`
 
-## MANDATORY: Load Context First
-Before executing, follow the context-loader protocol:
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+Also follow the context-loader protocol:
 1. Load guidelines: CLAUDE.md (DNS attack surface section, subdomain takeover methodology)
 2. Load program guidelines: scope.md → verify subdomain is in scope (wildcard scope?)
 3. Load engagement: findings_log.md, gadgets.json (takeovers chain with CORS, CSP, cookie scope)
@@ -179,3 +185,10 @@ bug_bounty/<program>_bug_bounty/recon/takeover/
 - Quick CNAME check on specific subdomain → `recon-specialist-low` (haiku)
 - Second-order analysis → `recon-specialist-high` (opus)
 - Impact chain assessment → `vuln-analyst` (opus)
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

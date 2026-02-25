@@ -10,6 +10,13 @@ description: Scrape HackerOne hacktivity and disclosed reports to detect duplica
 
 Searches HackerOne's public hacktivity and disclosed reports for similar findings. This is the external duplicate check — Layer 6 of the dedup system.
 
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
 ## Why This Exists
 
 Internal dedup (layers 1-5) catches YOUR duplicates. Hacktivity check catches OTHER RESEARCHERS' duplicates. If someone already reported the same bug 3 months ago and it was resolved, yours will be marked duplicate.
@@ -101,6 +108,66 @@ Suggested differentiators:
 - Chain component: "Your finding chains with F-003 to achieve ATO, disclosed report was standalone"
 ```
 
+## Keyword Matching Strategy
+
+### Building Search Queries
+For each finding, generate multiple search queries covering different angles:
+
+```
+Query templates:
+1. Exact: "<program_name>" "<exact_vuln_type>" "<exact_endpoint>"
+2. Broad: "<program_name>" "<vuln_category>" site:hackerone.com
+3. Tech: "<program_name>" "<technology>" vulnerability disclosed
+4. Endpoint: "<program_name>" "<endpoint_path>" security
+5. CWE: "<program_name>" "CWE-<number>" disclosed
+```
+
+### Keyword Expansion
+Map the finding to multiple search terms:
+
+| Finding Type | Search Keywords |
+|-------------|----------------|
+| CORS misconfiguration | "CORS", "cross-origin", "Access-Control", "origin reflection" |
+| IDOR | "IDOR", "insecure direct object", "broken access control", "unauthorized access" |
+| XSS | "XSS", "cross-site scripting", "script injection", "reflected", "stored" |
+| SSRF | "SSRF", "server-side request", "internal access", "metadata" |
+| SQL injection | "SQL injection", "SQLi", "database", "query injection" |
+| JWT manipulation | "JWT", "token", "algorithm confusion", "none algorithm" |
+| OAuth bypass | "OAuth", "redirect_uri", "token theft", "authorization bypass" |
+| Subdomain takeover | "subdomain takeover", "dangling CNAME", "unclaimed", "takeover" |
+| GraphQL | "GraphQL", "introspection", "batching", "query abuse" |
+| Actuator exposure | "actuator", "Spring Boot", "health endpoint", "env exposure" |
+
+### False Positive Filtering
+
+After collecting search results, filter out false positives:
+
+| False Positive Signal | Action |
+|----------------------|--------|
+| Different program, same vuln type | Ignore — not a dupe for YOUR program |
+| Same program, different asset entirely | Likely not a dupe — different asset |
+| Same program, same vuln, but 2+ years old | Low dupe risk — likely different root cause |
+| Blog post discussing the vuln type generically | Ignore — not a program-specific disclosure |
+| Report marked "Informational" or "N/A" | Note — your report may face same fate |
+| Report marked "Duplicate" with original visible | Check original — YOUR finding may also be a dupe of that original |
+| Report resolved but fix confirmed incomplete | Your finding may be a VARIANT — clearly differentiate in report |
+
+### API-Based Search (When H1 API Available)
+
+If `H1_API_TOKEN` is configured, query the HackerOne API directly:
+
+```
+Use: mcp__plugin_greyhatcc_sec__h1_program_fetch
+Arguments: { handle: "<program_handle>" }
+
+Then search the returned data for:
+- Disclosed reports matching the vulnerability type
+- Resolved reports on the same asset
+- Reporter activity patterns (frequent reporters on same asset)
+```
+
+This provides structured JSON data that is more reliable than scraping.
+
 ## Integration
 - Called by `/greyhatcc:dedup` as Layer 6
 - Called by hunt-loop before reporting phase
@@ -110,3 +177,10 @@ Suggested differentiators:
 ## Delegation
 - Quick search (web search only) → execute directly
 - Deep search (Playwright + Perplexity) → `osint-researcher-low` (haiku)
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp

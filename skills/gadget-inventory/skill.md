@@ -11,8 +11,14 @@ description: Build and maintain a vulnerability gadget inventory for chaining �
 - `/greyhatcc:gadgets chain` — Analyze all gadgets for chaining opportunities
 - `/greyhatcc:gadgets check <new_finding>` — Check if a new finding chains with existing gadgets
 
-## MANDATORY: Load Context First
-Before executing, follow the context-loader protocol:
+## Context Loading (MANDATORY)
+Before executing this skill:
+1. Load scope: `.greyhatcc/scope.json` — verify target is in scope, note exclusions
+2. Load hunt state: `.greyhatcc/hunt-state.json` — check active phase, resume context
+3. Load program files: `findings_log.md`, `tested.json`, `gadgets.json` — avoid duplicating work
+4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
+
+Also load:
 1. Load findings_log.md — all current findings
 2. Load gadgets.json — existing gadget inventory
 3. Load reports/*.md — see what's already been chained and reported
@@ -202,3 +208,10 @@ This skill is referenced by:
 ## Delegation
 - Chain analysis → run locally (just JSON parsing + logic)
 - Complex chain assessment → `vuln-analyst` (opus) for novel chain identification
+
+## State Updates
+After completing this skill:
+1. Update `tested.json` — record what was tested (asset + vuln class)
+2. Update `gadgets.json` — add any informational findings with provides/requires tags for chaining
+3. Update `findings_log.md` — log any confirmed findings with severity
+4. Update hunt-state.json if in active hunt — set lastActivity timestamp
