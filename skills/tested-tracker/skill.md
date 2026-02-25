@@ -22,6 +22,18 @@ Before executing this skill:
 
 ---
 
+## Storage
+
+**When a v7 hunt is active** (`hunt-state/` directory exists):
+- Coverage data: `hunt-state/coverage.json` (CoverageTracker format from `src/shared/hunt-types.ts`)
+- Format: `{ endpoints_tested: { "url": ["vuln-class", ...] }, vuln_classes_covered: [...], vuln_classes_remaining: [...] }`
+- Also check `hunt-state/surfaces.json` for the full list of discovered endpoints
+
+**Legacy storage:**
+- File: `bug_bounty/<program>_bug_bounty/tested.json`
+
+When reading/writing coverage, check `hunt-state/coverage.json` first. If it exists, use it as the primary source.
+
 ## Coverage Matrix Concept
 
 The tested-tracker maintains a coverage matrix: **endpoints x vulnerability classes**. Complete coverage means every discovered endpoint has been tested for every applicable vulnerability class.
@@ -196,7 +208,8 @@ Before testing endpoint X for vuln_class Y:
 
 ## Delegation
 - This skill runs locally (file reads/writes only, no agent needed)
-- Gap analysis with prioritization → `vuln-analyst-low` (sonnet)
+- Gap analysis with prioritization → `intel-worker` (sonnet) in v7 hunt mode, or run locally
+- In v7 hunt mode, coverage gaps are also analyzed by the intel module every 5 work items
 
 
 ## Agent Dispatch Protocol

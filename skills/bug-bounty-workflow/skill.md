@@ -26,6 +26,20 @@ Before executing this skill:
 4. Load memory: Check MEMORY.md for target-specific notes from previous sessions
 
 
+## Hunt Mode (Recommended)
+
+For autonomous bug bounty hunting, use `/greyhatcc:hunt <program>` instead. Hunt mode uses
+the **v7 event-driven priority-queue architecture** that replaces the manual phase workflow below.
+
+Hunt mode advantages over manual workflow:
+- **Iterative**: Recon findings immediately spawn tests (no waiting for recon to finish)
+- **Adaptive**: Intel module reprioritizes based on signals and patterns
+- **Persistent**: State survives interruptions, compaction, session restarts
+- **Cost-efficient**: Dynamic model routing (haiku for recon, sonnet for testing, opus for exploitation)
+- **Chain-aware**: Automatic gadget graph analysis identifies chaining opportunities
+
+The manual workflow below is still valid for when you want fine-grained control over each phase.
+
 ## Phases
 
 ### Phase 0: Program Research

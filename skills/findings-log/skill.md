@@ -50,9 +50,19 @@ Before adding or updating findings, also follow the context-loader protocol:
 ```
 
 ## Storage
+
+**When a v7 hunt is active** (`hunt-state/` directory exists):
+- Structured findings: `hunt-state/findings.json` (canonical, JSON format matching Finding interface)
+- Individual reports: `hunt-state/reports/finding-{id}.md`
+- Evidence: `hunt-state/evidence/`
+
+**Legacy storage** (when no active hunt):
 - Main log: `findings/FINDINGS_LOG.md` or `bug_bounty/<program>_bug_bounty/findings_log.md`
 - Individual findings: `findings/<finding_id>.md`
 - Evidence: `evidence/<finding_id>/`
+
+When adding findings, check if `hunt-state/findings.json` exists first. If so, use the
+structured JSON format (Finding interface from `src/shared/hunt-types.ts`).
 
 ## Post-Add Actions
 After adding a finding:
@@ -62,7 +72,10 @@ After adding a finding:
 4. **Check program exclusion list** — flag if the finding type is borderline excluded
 5. **Suggest report action** — if HIGH/CRITICAL, suggest immediate h1-report generation
 
-Delegate to `report-writer-low` (haiku) for quick documentation.
+When a v7 hunt is active, also add gadgets to `hunt-state/gadgets.json` and update
+`hunt-state/coverage.json` for the tested endpoint/vuln-class.
+
+Delegate to `report-worker` (sonnet) for report generation, or handle locally for quick documentation.
 
 ## Severity Rating Guide
 

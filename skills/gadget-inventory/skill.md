@@ -40,7 +40,14 @@ Low-severity gadgets that seem worthless alone become HIGH/CRITICAL when chained
 
 ## Gadget Schema
 
+**When a v7 hunt is active** (`hunt-state/` directory exists):
+- Primary storage: `hunt-state/gadgets.json` (array of Gadget objects matching the Gadget interface from `src/shared/hunt-types.ts`)
+- The v7 format uses `provides`/`requires` arrays and `discovered_by` (WorkItem ID) fields
+
+**Legacy storage:**
 File: `bug_bounty/<program>_bug_bounty/gadgets.json`
+
+When reading/writing gadgets, check `hunt-state/gadgets.json` first. If it exists, use it as the primary source.
 
 ```json
 {
@@ -207,7 +214,8 @@ This skill is referenced by:
 
 ## Delegation
 - Chain analysis → run locally (just JSON parsing + logic)
-- Complex chain assessment → `vuln-analyst` (opus) for novel chain identification
+- Complex chain assessment → `exploit-worker` (opus) for novel chain identification and PoC development
+- In v7 hunt mode, chain analysis is also performed by the `intel-worker` (sonnet) as part of the periodic intel module
 
 
 ## Agent Dispatch Protocol

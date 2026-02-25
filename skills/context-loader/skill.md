@@ -263,14 +263,32 @@ On Missing: CREATE with: {"submissions": []}
 ```
 
 ### Step 5: Hunt State (NON-BLOCKING)
+
+**v7 Event-Driven Hunt State (preferred):**
+```
+Directory: hunt-state/
+Action: READ hunt.json, queue.json, findings.json, surfaces.json, gadgets.json, signals.json, coverage.json
+Required: NO (only exists during active v7 hunts)
+Extract: hunt status, queue depth, findings, surfaces, gadgets, signals, coverage
+On Missing: Not in v7 hunt mode — check legacy state
+On Found: Resume hunt loop. Load queue.json to see pending work items.
+  Check compaction-marker.json — if present, context was compacted during hunt.
+```
+
+**Legacy Hunt State (fallback):**
 ```
 File: .greyhatcc/hunt-state.json
 Action: READ
-Required: NO (only exists during active hunts)
+Required: NO (only exists during active legacy hunts)
 Extract: active phase, current target, pending findings, blockers
 On Missing: Not in hunt mode — proceed normally
 On Found: Resume from last phase, check lastActivity timestamp
 ```
+
+**Note:** When `hunt-state/` directory exists, it takes precedence over `.greyhatcc/hunt-state.json`.
+The v7 hunt stores structured data: findings in `hunt-state/findings.json`, gadgets in
+`hunt-state/gadgets.json`, coverage in `hunt-state/coverage.json`. These should be loaded
+in addition to (or instead of) the legacy per-program state files.
 
 ### Step 6: Phase-Specific Context (CONDITIONAL)
 ```
