@@ -8,6 +8,16 @@ export interface GreyhatConfig {
   };
   directories: Record<string, string>;
   hackerone: { username?: string; apiToken?: string };
+  webTools?: {
+    headless?: boolean;
+    maxSessions?: number;
+    maxTrafficEntries?: number;
+    maxBodySize?: number;
+    defaultScope?: string[];
+    chromiumPath?: string;
+    defaultUserAgent?: string;
+    defaultViewport?: { width: number; height: number };
+  };
 }
 
 // ── Shodan Banner (individual service record) ────────────────────────

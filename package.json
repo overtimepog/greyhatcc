@@ -9,10 +9,12 @@
     "build:shodan": "node esbuild.config.mjs shodan",
     "build:sectools": "node esbuild.config.mjs security-tools",
     "build:hackerone": "node esbuild.config.mjs hackerone",
+    "build:webtools": "node esbuild.config.mjs web-tools",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.0"
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "playwright-core": "^1.50.0"
   },
   "devDependencies": {
     "esbuild": "^0.20.0",

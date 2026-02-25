@@ -18,6 +18,10 @@ const servers = {
     entryPoint: resolve(__dirname, 'src/servers/hackerone/index.ts'),
     outfile: resolve(__dirname, 'bridge/hackerone-server.cjs'),
   },
+  'web-tools': {
+    entryPoint: resolve(__dirname, 'src/servers/web-tools/index.ts'),
+    outfile: resolve(__dirname, 'bridge/web-tools-server.cjs'),
+  },
 };
 
 const toBuild = target ? { [target]: servers[target] } : servers;
@@ -39,7 +43,7 @@ for (const [name, config] of Object.entries(toBuild)) {
     format: 'cjs',
     minify: false,
     sourcemap: true,
-    external: [],
+    external: name === 'web-tools' ? ['playwright-core'] : [],
   });
   console.log(`Built ${name} -> ${config.outfile} (${Date.now() - start}ms)`);
 }

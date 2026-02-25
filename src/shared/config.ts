@@ -20,6 +20,13 @@ const DEFAULT_CONFIG: GreyhatConfig = {
     notes: 'notes',
   },
   hackerone: {},
+  webTools: {
+    headless: true,
+    maxSessions: 20,
+    maxTrafficEntries: 5000,
+    maxBodySize: 1_048_576,
+    defaultScope: ['**/*'],
+  },
 };
 
 function loadJsonFile(path: string): Partial<GreyhatConfig> {
@@ -71,6 +78,14 @@ export function loadConfig(): GreyhatConfig {
   }
   if (process.env.H1_USERNAME) {
     config.hackerone.username = process.env.H1_USERNAME;
+  }
+  if (process.env.CHROMIUM_PATH) {
+    config.webTools = config.webTools || {};
+    config.webTools.chromiumPath = process.env.CHROMIUM_PATH;
+  }
+  if (process.env.WEB_TOOLS_HEADLESS === 'false') {
+    config.webTools = config.webTools || {};
+    config.webTools.headless = false;
   }
 
   return config;
