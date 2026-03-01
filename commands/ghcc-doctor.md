@@ -1,17 +1,16 @@
 ---
-name: doctor
+name: ghcc-doctor
 description: "Diagnose and fix greyhatcc plugin installation and configuration issues"
 aliases:
-  - doc
-  - health
+  - ghcc-health
 allowed-tools: Task, Bash, Read, Glob, Grep
 argument-hint: ""
-skill: greyhatcc:doctor
+skill: greyhatcc:ghcc-doctor
 ---
 
 # Plugin Diagnostics
 
-Invoke the `greyhatcc:doctor` skill to check plugin health.
+Invoke the `greyhatcc:ghcc-doctor` skill to check plugin health.
 
 Comprehensive diagnostic check for the greyhatcc plugin environment:
 

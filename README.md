@@ -198,7 +198,7 @@ HUNT ORCHESTRATOR (opus) — event loop
 | `/greyhatcc:program` | `research`, `bbp` | Research a bug bounty program (scope, bounties, rules) |
 | `/greyhatcc:gadgets` | `chain`, `chains` | Gadget inventory and chaining analysis |
 | `/greyhatcc:tested` | `coverage`, `gaps` | Track tested endpoints and vuln classes |
-| `/greyhatcc:doctor` | `doc`, `health` | Plugin diagnostics and health check |
+| `/greyhatcc:ghcc-doctor` | `ghcc-health` | Plugin diagnostics and health check |
 
 ## Skills (33)
 

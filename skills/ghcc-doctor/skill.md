@@ -1,12 +1,12 @@
 ---
-name: doctor
+name: ghcc-doctor
 description: Diagnose and fix greyhatcc plugin installation, configuration, dependency, and MCP server health issues
 ---
 
 # Plugin Diagnostics
 
 ## Usage
-`/greyhatcc:doctor`
+`/greyhatcc:ghcc-doctor`
 
 ## Context Loading (MANDATORY)
 Before executing this skill:

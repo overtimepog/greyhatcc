@@ -111,7 +111,7 @@ const SKILL_PATTERNS = [
   { p: 40, match: /(?:guide|reference|cheatsheet|methodology|howto|payload\s*list)/i, skill: 'greyhatcc:guides', hint: 'Curated reference library (HowToHunt, HackTricks, PayloadsAllTheThings)' },
 
   // --- DIAGNOSTICS ---
-  { p: 10, match: /(?:greyhatcc\s*(?:broken|error|fix|debug|diagnos|doctor|health))/i, skill: 'greyhatcc:doctor', hint: 'Plugin diagnostics and health check' },
+  { p: 10, match: /(?:greyhatcc\s*(?:broken|error|fix|debug|diagnos|doctor|health))/i, skill: 'greyhatcc:ghcc-doctor', hint: 'Plugin diagnostics and health check' },
 ];
 
 async function main() {
