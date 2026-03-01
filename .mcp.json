@@ -21,10 +21,7 @@
     },
     "web": {
       "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/web-tools-server.cjs"],
-      "env": {
-        "CHROMIUM_PATH": "${CHROMIUM_PATH}"
-      }
+      "args": ["${CLAUDE_PLUGIN_ROOT}/bridge/web-tools-server.cjs"]
     }
   }
 }
